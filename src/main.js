@@ -1,0 +1,536 @@
+// ---------- home scene: the player's tank, top-down, parked on the parade ground ----------
+const Home = {
+  tank: null, hover: null, scale: 2, ready: false,
+  setup() {
+    loadMap('home');
+    W.mode = { key: 'home' };
+    W.tanks = [];
+    W.bullets = [];
+    W.effects = [];
+    W.player = null;
+    this.tank = makeTank({ team: 'player', hull: Loadout.hull, guns: Loadout.guns, x: 576, y: 320, a: -90 });
+    // big hulls get a smaller showcase scale so every tank fills about the same space
+    const im = img(this.tank.H.body + '_outline');
+    this.scale = 2 * clamp(84 / Math.max(im.width, im.height), 0.62, 1);
+    this.ready = true;
+    if (Input.isTouch) $('ctrlHelp').textContent = '左下摇杆驾驶 · 点战场瞄准并开火 · 右下按钮连发';
+    $('homeLoadout').innerHTML = `<b>当前坦克</b>　${loadoutLabel(Loadout)}<br><span class="muted">美术素材：Kenney Top-down Tanks Remastered · UI Pack Adventure（CC0）</span>`;
+  },
+  // which part of the hero tank is under a screen point: 'tracks' | 'body' | null
+  hit(px, py) {
+    if (!this.tank) return null;
+    const t = this.tank;
+    const [wx, wy] = R.toWorld(px, py);
+    const dx = (wx - t.x) / this.scale, dy = (wy - t.y) / this.scale;
+    const [lx, ly] = rotXY(dx, dy, -(t.a - Math.PI / 2));
+    const im = img(t.H.body + '_outline');
+    const hw = im.width / 2, hh = im.height / 2, tw = t.H.trackW + 4;
+    if (Math.abs(ly) > hh + 10) {
+      // the barrels stick out past the nose
+      return Math.abs(lx) < 30 && ly < hh + 70 && ly > 0 ? 'body' : null;
+    }
+    if (Math.abs(lx) > hw + 16) return null;
+    if (Math.abs(lx) >= hw - tw - 5) return 'tracks';
+    return 'body';
+  },
+  draw(dt) {
+    const ctx = R.ctx;
+    R.frame(0, 0, 1152, 640, true);
+    R.apply();
+    const L = W.map.tiles;
+    ctx.drawImage(L.canvas, L.x, L.y);
+    for (const o of W.props) if (o.layer === 'ground') drawProp(ctx, o);
+    for (const o of W.props) if (o.layer === 'low') drawProp(ctx, o);
+    const t = this.tank;
+    // aim at the pointer
+    if (Input.mouse.inside) {
+      const [mx, my] = R.toWorld(Input.mouse.x, Input.mouse.y);
+      const want = Math.atan2(my - t.y, mx - t.x);
+      t.turret = angNorm(t.turret + clamp(angDiff(t.turret, want), -4 * dt, 4 * dt));
+      t.aimX = mx;
+      t.aimY = my;
+    }
+    const ring = uimg('minimap_ring_white');
+    const pulse = 0.55 + Math.sin(performance.now() / 420) * 0.15 + (this.hover ? 0.25 : 0);
+    const rr = (Math.max(img(t.H.body).width, img(t.H.body).height) * 0.5 + 34) * this.scale;
+    ctx.globalAlpha = pulse;
+    ctx.drawImage(ring, t.x - rr, t.y - rr, rr * 2, rr * 2);
+    ctx.globalAlpha = 1;
+    drawTank(ctx, t, this.scale, this.hover);
+    for (const o of W.props) if (o.layer === 'high') drawProp(ctx, o);
+    this.placeTips();
+  },
+  placeTips() {
+    const t = this.tank, im = img(t.H.body + '_outline');
+    const [bx, by] = R.toScreen(t.x, t.y - (im.height / 2) * this.scale - 18);
+    const [rx, ry] = R.toScreen(t.x + (im.width / 2) * this.scale + 10, t.y);
+    const tb = $('tipBody'), tt = $('tipTracks');
+    tb.style.left = clamp(bx - tb.offsetWidth / 2, 8, R.W - tb.offsetWidth - 8) + 'px';
+    tb.style.top = Math.max(96, by - tb.offsetHeight) + 'px';
+    const [, belowY] = R.toScreen(t.x, t.y + (im.height / 2) * this.scale + 12);
+    const roomRight = rx + tt.offsetWidth + 8 <= R.W;
+    tt.style.left = (roomRight ? rx : clamp(R.W / 2 - tt.offsetWidth / 2, 8, R.W - tt.offsetWidth - 8)) + 'px';
+    tt.style.top = (roomRight ? ry - tt.offsetHeight / 2 : belowY) + 'px';
+    tb.querySelector('img').style.transform = 'rotate(180deg)';
+    tt.querySelector('img').style.transform = roomRight ? 'rotate(-90deg)' : 'rotate(0deg)';
+    tb.classList.toggle('hot', this.hover === 'body');
+    tt.classList.toggle('hot', this.hover === 'tracks');
+  },
+};
+
+// ---------- the sample battlefield, frozen, behind the mode cards ----------
+function setupShowcase() {
+  loadMap('main');
+  W.mode = { key: 'showcase', enemyDmg: 0.5 };
+  W.view = { x: 0, y: 0, w: SAMPLE_VIEW.w, h: SAMPLE_VIEW.h };
+  W.tanks = MAPS.main.tanks.map((d) => makeTank({ team: 'enemy', hull: d.hull, guns: d.guns, x: d.x, y: d.y, a: d.a }));
+  W.player = null;
+  W.turrets = MAPS.main.turrets.map(makeTurret);
+  W.bullets = [];
+  W.effects = [];
+  introEffects(true);
+}
+function introEffects(frozen) {
+  for (const [name, x, y, rot] of MAPS.main.intro) {
+    const m = name.match(/^(explosionSmoke|explosion)(\d)$/);
+    if (m) W.effects.push({ kind: 'anim', seq: m[1], x, y, scale: 1, rot: deg(rot), t: (+m[2] - 1) * 0.06 + 0.001, fd: frozen ? 1e9 : 0.06 });
+    else W.effects.push({ kind: 'flash', sprite: name, x, y, rot: deg(rot), t: 0, life: frozen ? 1e9 : 0.5 });
+  }
+  // track marks behind the three tanks that were rolling in the sample
+  for (const t of W.tanks) {
+    if (!['blue', 'red', 'sand'].includes(t.hull)) continue;
+    for (const k of [58, 110, 162]) addDecal(t.H.tracks, t.x - Math.cos(t.a) * k, t.y - Math.sin(t.a) * k, t.a - Math.PI / 2, frozen ? 1e9 : 7, 0.5);
+  }
+}
+
+// ---------- game ----------
+const Game = {
+  mode: null, modeKey: null, paused: false, hold: 0,
+  start(key) {
+    const M = MODES[key];
+    this.modeKey = key;
+    this.mode = key;
+    this.paused = false;
+    W.over = false;
+    W.kills = 0;
+    W.time = 0;
+    W.shake = 0;
+    W.bullets = [];
+    W.effects = [];
+    W.turrets = [];
+    W.tanks = [];
+    W.wave = null;
+    W.mode = Object.assign({ key }, M, {
+      enemyDmg: key === 'battle' ? 0.15 : 0.3,
+      respawn: key === 'fun' ? 3 : 7,
+      godMode: key === 'fun',
+    });
+    loadMap(M.map);
+    W.view = { x: 0, y: 0, w: SAMPLE_VIEW.w, h: SAMPLE_VIEW.h };
+    Flow.setup(0, 0, W.view.w, W.view.h);
+    const lo = Loadout;
+    if (M.map === 'main') {
+      const hpMul = key === 'fun' ? 0.5 : 0.6;
+      for (const d of MAPS.main.tanks) {
+        if (d.hull === 'green') {
+          W.player = makeTank({ team: 'player', hull: lo.hull, guns: lo.guns, x: d.x, y: d.y, a: d.a, hpMul: key === 'battle' ? 1.6 : 1 });
+          W.spawnPoint = [d.x, d.y];
+          W.tanks.push(W.player);
+        } else W.tanks.push(makeTank({ team: 'enemy', hull: d.hull, guns: d.guns, x: d.x, y: d.y, a: d.a, hpMul }));
+      }
+      W.turrets = MAPS.main.turrets.map(makeTurret);
+      introEffects(false);
+      this.hold = 0.7;
+    } else {
+      buildDefenseLine();
+      W.player = makeTank({ team: 'player', hull: lo.hull, guns: lo.guns, x: 300, y: 515, a: 0 });
+      W.spawnPoint = [300, 515];
+      W.tanks.push(W.player);
+      W.wave = { n: 0, toSpawn: 0, spawnT: 0, breakT: 2.2, total: 0, killed: 0, lastSpawn: -1 };
+      Flow.compute(defenseTargets());
+      this.hold = 0;
+    }
+    App.go('play');
+    HUD.setup(key);
+    HUD.toast(key === 'defense' ? '守住沙袋防线' : key === 'fun' ? '超爽模式 · 尽情开炮' : '开战！', 1.6);
+    setTimeout(() => ($('hintBar').style.opacity = 0), 7000);
+  },
+  togglePause(force) {
+    if (App.screen !== 'play' || W.over) return;
+    this.paused = force == null ? !this.paused : force;
+    show('pause', this.paused);
+    if (this.paused) {
+      syncPauseUi();
+      const regen = $('optRegen');
+      if (regen) {
+        regen.firstElementChild.className = 'chk ' + (this.modeKey === 'battle' ? 'chk-grey-on' : 'chk-grey-x');
+        regen.setAttribute('aria-disabled', this.modeKey !== 'battle');
+      }
+      $('pResume').focus();
+    }
+    Input.mouse.down = false;
+  },
+  update(dt) {
+    if (this.hold > 0) {
+      this.hold -= dt;
+      return;
+    }
+    if (W.over) {
+      updateBullets(dt);
+      updateEffects(dt);
+      return;
+    }
+    W.time += dt;
+    const p = W.player;
+    if (p && p.alive) this.controlPlayer(p, dt);
+    for (const t of W.tanks) {
+      if (!t.alive) continue;
+      t.hitT += dt;
+      t.flash = Math.max(0, t.flash - dt);
+      t.heat = Math.max(0, t.heat - dt * 0.35);
+      for (let i = 0; i < t.cd.length; i++) {
+        t.cd[i] = Math.max(0, t.cd[i] - dt);
+        t.recoil[i] = Math.max(0, t.recoil[i] - dt * 6);
+      }
+      if (t.burst.length) {
+        for (const b of t.burst) b.at -= dt;
+        t.burst = t.burst.filter((b) => {
+          if (b.at > 0) return true;
+          fireMount(t, b.i);
+          return false;
+        });
+      }
+      if (t.team === 'enemy') {
+        if (this.modeKey === 'battle') aiBattle(t, dt);
+        else if (this.modeKey === 'fun') aiWander(t, dt);
+        else aiDefense(t, dt);
+      }
+    }
+    // pathfinding refresh
+    if (this.modeKey === 'battle') {
+      W.flowT -= dt;
+      if ((W.flowT <= 0 || Flow.dirty) && p && p.alive) {
+        W.flowT = 0.45;
+        Flow.compute([[p.x, p.y]]);
+      }
+    } else if (this.modeKey === 'defense' && Flow.dirty) Flow.compute(defenseTargets());
+    for (const t of W.tanks) if (t.alive) driveTank(t, dt);
+    separateTanks();
+    updateTurrets(dt);
+    updateBullets(dt);
+    updateEffects(dt);
+    if (this.modeKey === 'defense') this.updateWaves(dt);
+    else this.updateRespawns(dt);
+  },
+  controlPlayer(p, dt) {
+    let thr = 0, st = 0;
+    if (Input.down('KeyW', 'ArrowUp')) thr += 1;
+    if (Input.down('KeyS', 'ArrowDown')) thr -= 1;
+    if (Input.down('KeyA', 'ArrowLeft')) st -= 1;
+    if (Input.down('KeyD', 'ArrowRight')) st += 1;
+    const tm = Input.touchMove;
+    if (tm.active && hypot(tm.x, tm.y) > 0.15) {
+      const want = Math.atan2(tm.y, tm.x), mag = Math.min(1, hypot(tm.x, tm.y));
+      const d = angDiff(p.a, want);
+      st = clamp(d * 2.4, -1, 1);
+      thr = Math.abs(d) < 1.2 ? mag : Math.abs(d) < 2 ? mag * 0.3 : 0;
+    }
+    p.throttle = thr;
+    p.steer = st;
+    let ax = null, ay = null;
+    if (Input.touchAim.active) [ax, ay] = R.toWorld(Input.touchAim.x, Input.touchAim.y);
+    else if (Input.mouse.inside || Input.mouse.down) [ax, ay] = R.toWorld(Input.mouse.x, Input.mouse.y);
+    if (ax != null) {
+      const want = Math.atan2(ay - p.y, ax - p.x);
+      p.turret = angNorm(p.turret + clamp(angDiff(p.turret, want), -6 * dt, 6 * dt));
+      p.aimX = ax;
+      p.aimY = ay;
+    } else if (tm.active) {
+      p.turret = angNorm(p.turret + clamp(angDiff(p.turret, p.a), -4 * dt, 4 * dt));
+      p.aimX = p.x + Math.cos(p.a) * 400;
+      p.aimY = p.y + Math.sin(p.a) * 400;
+    }
+    if (Input.mouse.down || Input.down('Space') || Input.touchAim.fire || Input.fireBtn) tryFirePlayer(p);
+    // battle: regain armour after 3 s out of fire
+    p.regen = false;
+    if (this.modeKey === 'battle' && p.hitT > 3 && p.hp < p.maxHp) {
+      p.hp = Math.min(p.maxHp, p.hp + 12 * dt);
+      p.regen = true;
+    }
+  },
+  updateRespawns(dt) {
+    const p = W.player;
+    for (const t of W.tanks) {
+      if (t.team !== 'enemy' || t.alive) continue;
+      t.respawnT -= dt;
+      if (t.respawnT > 0) continue;
+      if (p && hypot(p.x - t.spawn.x, p.y - t.spawn.y) < 220) continue;
+      const lo = randomEnemyLoadout(HULLS[t.hull].large);
+      const spawn = t.spawn;
+      Object.assign(t, makeTank({ team: 'enemy', hull: lo.hull, guns: lo.guns, x: spawn.x, y: spawn.y, a: spawn.a, hpMul: this.modeKey === 'fun' ? 0.5 : 0.6 }));
+      anim('explosionSmoke', t.x, t.y, 1.1);
+    }
+  },
+  updateWaves(dt) {
+    const w = W.wave;
+    if (W.over) return;
+    const alive = W.tanks.filter((t) => t.team === 'enemy' && t.alive);
+    if (w.breakT > 0) {
+      w.breakT -= dt;
+      if (w.breakT <= 0) {
+        w.n++;
+        const cfg = waveConfig(w.n);
+        w.toSpawn = cfg.count;
+        w.total = cfg.count;
+        w.killed = 0;
+        w.spawnT = 0.3;
+        w.cfg = cfg;
+        HUD.toast(`第 ${w.n} 波来袭`, 1.8);
+      }
+    } else if (w.toSpawn > 0) {
+      w.spawnT -= dt;
+      if (w.spawnT <= 0 && spawnWaveEnemy(w)) {
+        w.toSpawn--;
+        w.spawnT = w.cfg.interval;
+      }
+    } else if (!alive.length) {
+      if (w.n >= MODES.defense.waves) this.finish('win');
+      else {
+        w.breakT = 3.5;
+        HUD.toast(`第 ${w.n} 波已击退`, 1.6);
+      }
+    }
+    // HUD: how close is the nearest enemy to the sandbags
+    let near = 9999;
+    for (const t of alive) near = Math.min(near, t.x - t.r - W.map.lineX);
+    const danger = near < 260;
+    $('alert').hidden = !danger;
+    $('danger').classList.toggle('on', danger);
+    $('waveBox').classList.toggle('pz-grey-bolts-blue', !danger);
+    $('waveBox').classList.toggle('pz-grey-red', danger);
+    $('gLine').firstElementChild.style.top = clamp(near / 1200, 0, 1) * 100 + '%';
+    $('waveNum').textContent = w.n;
+    $('waveText').textContent = `第 ${w.n} / ${MODES.defense.waves} 波`;
+    $('leftText').textContent = `剩余 ${alive.length + w.toSpawn}`;
+    setBar('waveBar', w.total ? w.killed / w.total : 0);
+  },
+  finish(kind) {
+    if (W.over) return;
+    W.over = true;
+    const key = this.modeKey;
+    setTimeout(() => {
+      if (App.screen !== 'play') return;
+      let stats, msg;
+      if (key === 'defense') {
+        const reached = kind === 'win' ? MODES.defense.waves : W.wave.n;
+        Best.defense = Math.max(Best.defense, reached);
+        stats = [['到达波次', reached], ['击毁坦克', W.kills], ['用时', fmtTime(W.time)]];
+        msg = kind === 'win' ? '十波敌军全部被挡在沙袋线外，防线完好无损。' : `一辆敌方坦克在第 ${W.wave.n} 波碰到了沙袋。试试射程更远或火力更猛的炮管，在敌人接近前把它们打掉。`;
+      } else {
+        Best.battle = Math.max(Best.battle, W.kills);
+        stats = [['击毁', W.kills], ['坚持', fmtTime(W.time)], ['最高纪录', Best.battle]];
+        msg = '你的坦克被击毁了。敌方开火后要冷却 3 秒，抓住它们装填的空当绕到侧面开火。';
+      }
+      store.set('best', Best);
+      showResult(kind, stats, msg);
+    }, kind === 'win' ? 900 : 1500);
+  },
+};
+
+function randomEnemyLoadout(large) {
+  if (large) {
+    const hull = pick(['bigRed', 'darkLarge', 'huge']);
+    return { hull, guns: HULLS[hull].mounts.map(() => 'x' + (1 + ((Math.random() * 7) | 0))) };
+  }
+  const hull = pick(SMALL_ORDER);
+  return { hull, guns: [COLOR_KEYS[HULLS[hull].color] + (1 + ((Math.random() * 3) | 0))] };
+}
+
+function waveConfig(n) {
+  const count = 3 + n * 2;
+  return { count, interval: Math.max(0.9, 3 - n * 0.2), hpMul: 0.28 + n * 0.036, speedMul: 0.36 + n * 0.028, largeChance: n >= 7 ? 0.3 : n >= 5 ? 0.22 : n >= 3 ? 0.14 : 0 };
+}
+const DEF_SPAWNS = [
+  [1900, 131, 180], [1900, 515, 180], [1900, 899, 180], [1686, -90, 90], [1686, 1120, -90],
+];
+const SMALL_ORDER = ['green', 'sand', 'red', 'blue', 'dark'];
+function spawnWaveEnemy(w) {
+  const cfg = w.cfg;
+  const k = w.total - w.toSpawn;
+  for (let tries = 0; tries < DEF_SPAWNS.length; tries++) {
+    const si = (w.n * 3 + k + tries) % DEF_SPAWNS.length;
+    const [x, y, a] = DEF_SPAWNS[si];
+    if (W.tanks.some((t) => t.alive && hypot(t.x - x, t.y - y) < 120)) continue;
+    let hull, guns;
+    if (Math.random() < cfg.largeChance) {
+      hull = pick(w.n >= 7 ? ['bigRed', 'darkLarge', 'huge'] : w.n >= 5 ? ['bigRed', 'darkLarge'] : ['bigRed']);
+      guns = HULLS[hull].mounts.map((_, i) => 'x' + (((w.n + k + i) % 7) + 1));
+    } else {
+      hull = SMALL_ORDER[(w.n + k) % 5];
+      guns = [COLOR_KEYS[HULLS[hull].color] + (((w.n * 2 + k) % 3) + 1)];
+    }
+    const t = makeTank({ team: 'enemy', hull, guns, x, y, a, hpMul: cfg.hpMul, speedMul: cfg.speedMul });
+    t.entering = true;
+    t.ai.cd = rand(1.5, 3);
+    W.tanks.push(t);
+    return true;
+  }
+  return false;
+}
+function buildDefenseLine() {
+  const x = W.map.lineX;
+  let i = 0;
+  for (let y = -26; y < W.view.h + 40; y += 48, i++) {
+    const name = i % 4 === 3 ? 'sandbagBrown' : 'sandbagBeige';
+    const o = makeProp(name, x + (i % 2 ? 3 : -3), y, 90 + rand(-6, 6));
+    o.lineBag = true;
+    o.hp = o.maxHp = Infinity;
+    W.props.push(o);
+  }
+}
+function defenseTargets() {
+  const out = [];
+  for (let y = 16; y < W.view.h; y += 32) out.push([W.map.lineX + 70, y]);
+  return out;
+}
+
+// ---------- app: which screen is up ----------
+const App = {
+  screen: null,
+  go(screen) {
+    this.screen = screen;
+    show('home', screen === 'home');
+    show('tipBody', screen === 'home');
+    show('tipTracks', screen === 'home');
+    show('modes', screen === 'modes');
+    show('garage', screen === 'garage');
+    show('hud', screen === 'play');
+    show('touch', screen === 'play' && Input.isTouch);
+    if (screen !== 'play') {
+      show('pause', false);
+      Game.paused = false;
+      Game.mode = null;
+    }
+    R.cv.style.cursor = screen === 'play' ? 'crosshair' : 'default';
+    if (screen === 'home') Home.setup();
+    if (screen === 'modes') {
+      setupShowcase();
+      buildModes();
+    }
+    if (screen === 'garage') Garage.open();
+  },
+  onPointerDown(e) {
+    if (this.screen !== 'home') return;
+    const part = Home.hit(e.clientX, e.clientY);
+    if (part === 'tracks') this.go('garage');
+    else if (part === 'body') this.go('modes');
+  },
+  startMode(key) {
+    const bad = loadoutProblems(Loadout).length > 0;
+    if (key !== 'fun' && bad) {
+      dialog('装备不符合规则', `${MODES[key].name}里，红黑两色的特殊炮管只能装在大型坦克（红魔重坦、钢铁堡垒、巨像）上。你现在的「${loadoutLabel(Loadout)}」需要调整后才能出击。`, [
+        ['换成常规炮管并出击', 'btn-red', () => {
+          Loadout = fixLoadout(Loadout);
+          saveLoadout();
+          Game.start(key);
+        }],
+        ['去装备库', 'btn-brown', () => this.go('garage')],
+        ['改玩超爽模式', 'btn-grey', () => Game.start('fun')],
+      ]);
+      return;
+    }
+    Game.start(key);
+  },
+  onEnemyKilled(t) {
+    if (W.wave) W.wave.killed++;
+    if (t && t.isLarge && Game.modeKey !== 'defense') HUD.toast(`击毁 ${t.H.name}`, 1.2);
+    if (Game.modeKey === 'fun') {
+      Best.fun++;
+      store.set('best', Best);
+    }
+  },
+  onPlayerKilled() {
+    if (Game.modeKey === 'battle') Game.finish('dead');
+  },
+  onLineTouched(t, o) {
+    if (W.mode.key !== 'defense' || W.over) return;
+    anim('explosionSmoke', o.x + 20, o.y, 0.9);
+    o.opened = true;
+    o.sprite = o.def.open || o.sprite;
+    addShake(14);
+    Game.finish('line');
+  },
+  onEscape() {
+    if (!$('dialog').hidden) return show('dialog', false);
+    if (this.screen === 'play') return Game.togglePause();
+    if (this.screen === 'garage') {
+      Garage.save();
+      return this.go('home');
+    }
+    if (this.screen === 'modes') return this.go('home');
+  },
+};
+
+$('modesBack').onclick = () => App.go('home');
+$('modesGarage').onclick = () => App.go('garage');
+$('garageClose').onclick = () => {
+  Garage.save();
+  App.go('home');
+};
+$('garageHome').onclick = () => {
+  Garage.save();
+  App.go('home');
+};
+$('garageGo').onclick = () => {
+  Garage.save();
+  App.go('modes');
+};
+
+// ---------- main loop ----------
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.033, (now - lastT) / 1000);
+  lastT = now;
+  R.clear();
+  const ctx = R.ctx;
+  if (App.screen === 'home') {
+    const part = Input.mouse.inside ? Home.hit(Input.mouse.x, Input.mouse.y) : null;
+    Home.hover = part;
+    R.cv.style.cursor = part ? 'pointer' : 'default';
+    Home.draw(dt);
+  } else if (App.screen === 'modes') {
+    R.frame(0, 0, SAMPLE_VIEW.w, SAMPLE_VIEW.h, false);
+    R.apply();
+    drawWorld(ctx);
+  } else if (App.screen === 'play') {
+    if (!Game.paused) Game.update(dt);
+    R.frame(0, 0, W.view.w, W.view.h, false);
+    if (R.cam.s < 0.45 && W.player) {
+      // portrait phone: fill the height (or 900 world px) and slide along with the player
+      R.cam.s = Math.min(R.W / 900, R.H / W.view.h) > R.cam.s ? Math.min(R.W / 900, R.H / W.view.h) : R.cam.s;
+      const hw = R.W / 2 / R.cam.s, hh = R.H / 2 / R.cam.s;
+      R.cam.x = hw * 2 >= W.view.w ? W.view.w / 2 : clamp(W.player.x, hw, W.view.w - hw);
+      R.cam.y = hh * 2 >= W.view.h ? W.view.h / 2 : clamp(W.player.y, hh, W.view.h - hh);
+    }
+    const sh = W.shake;
+    R.apply(sh ? rand(-sh, sh) * 0.5 : 0, sh ? rand(-sh, sh) * 0.5 : 0);
+    drawWorld(ctx);
+    if (Settings.radar) Radar.draw();
+    HUD.update();
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- boot ----------
+async function boot() {
+  R.init();
+  Radar.init();
+  Input.init(R.cv);
+  await loadAssets();
+  $('boot').hidden = true;
+  App.go('home');
+  requestAnimationFrame(frame);
+  window.claude?.hot?.snapshot?.(() => ({ loadout: Loadout, settings: Settings }));
+}
+if (window.claude?.hot?.ready) window.claude.hot.ready(() => boot());
+else boot();
