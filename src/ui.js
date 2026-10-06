@@ -1,5 +1,5 @@
 // ---------- settings & loadout (per-viewer, kept in localStorage when available) ----------
-const Settings = Object.assign({ radar: true, tracks: true, bars: true, shake: 0.6 }, store.get('settings', {}));
+const Settings = Object.assign({ radar: true, tracks: true, bars: true, shake: 0.6, wheelFront: true }, store.get('settings', {}));
 let Loadout = normLoadout(store.get('loadout', DEFAULT_LOADOUT));
 const Best = Object.assign({ fun: 0, battle: 0, defense: 0 }, store.get('best', {}));
 function saveLoadout() {
@@ -72,7 +72,7 @@ const CARDS = [
   {
     key: 'battle', panel: 'pz-brown-corners-b', medal: 'medal-2', icon: 'explosion3', title: '普通战场',
     desc: '你和友方「暗影」坦克，对阵敌方「红魔重坦」和「钢铁堡垒」。地图两座炮台一座帮你、一座帮敌人。',
-    rules: [['on', '友方暗影坦克、友方炮台并肩作战'], ['off', '敌方坦克和炮台开火冷却 3 秒'], ['on', '耐久每秒持续回复 10 点'], ['na', '双方被击毁后都 4 秒重生']],
+    rules: [['on', '友方暗影坦克、友方炮台并肩作战'], ['off', '敌方坦克和炮台开火冷却 3 秒'], ['on', '耐久每秒持续回复 5 点'], ['na', '双方被击毁后都 4 秒重生']],
     best: (v) => `最高击毁 ${v}`,
   },
   {
@@ -367,9 +367,11 @@ $('pauseBtn').onclick = () => Game.togglePause();
 
 // ---------- steering wheel (drag with the mouse) ----------
 // Turning the rim clockwise steers right. Full lock is 135deg either way; let go and it springs back to centre.
+// It sits just ahead of the player's tank, so the mouse never has far to go between steering and aiming;
+// the pause menu can send it back to the bottom-left corner.
 const WHEEL_MAX = deg(135);
 const Wheel = {
-  angle: 0, dragging: false, last: 0,
+  angle: 0, dragging: false, last: 0, front: false, x: 0, y: 0, half: 0, pos: null,
   init() {
     const el = $('wheel');
     const centre = () => {
@@ -424,6 +426,28 @@ const Wheel = {
     this.dragging = false;
     this.render();
   },
+  // the chase camera keeps the tank's nose pointing up the screen, so "ahead of the tank" is a fixed spot above it
+  place() {
+    const el = $('wheel'), p = W.player;
+    if (el.hidden) return;
+    let left = '', top = '';
+    this.front = Settings.wheelFront && !!p;
+    if (this.front) {
+      const c = Cam.chase();
+      this.half = this.half || el.offsetWidth / 2;
+      const nose = (img(p.H.body).height / 2) * c.s;
+      this.x = R.W / 2;
+      this.y = Math.max(this.half + 8, R.H * c.ay - nose - 34 - this.half);
+      left = Math.round(this.x - this.half) + 'px';
+      top = Math.round(this.y - this.half) + 'px';
+    }
+    const pos = left + ',' + top;
+    if (pos === this.pos) return;
+    this.pos = pos;
+    el.classList.toggle('front', this.front);
+    el.style.left = left;
+    el.style.top = top;
+  },
 };
 Wheel.init();
 
@@ -438,6 +462,7 @@ function syncPauseUi() {
   set('optRadar', Settings.radar);
   set('optTracks', Settings.tracks);
   set('optBars', Settings.bars, false);
+  set('optWheel', Settings.wheelFront, Input.isTouch);
   const v = Math.round(Settings.shake * 100);
   $('shakeVal').textContent = v + '%';
   $('shakeTrack').firstElementChild.style.left = v + '%';
@@ -459,6 +484,12 @@ $('optTracks').onclick = () => {
 $('optBars').onclick = () => {
   Settings.bars = !Settings.bars;
   saveSettings();
+};
+$('optWheel').onclick = () => {
+  if (Input.isTouch) return; // touch screens drive with the stick instead
+  Settings.wheelFront = !Settings.wheelFront;
+  saveSettings();
+  Wheel.place();
 };
 (function slider() {
   const tr = $('shakeTrack');

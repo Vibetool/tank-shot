@@ -286,6 +286,7 @@ const Game = {
     p.steer = clamp(st + Wheel.steer(), -1, 1);
     let ax = null, ay = null;
     if (Input.touchAim.active) [ax, ay] = R.toWorld(Input.touchAim.x, Input.touchAim.y);
+    else if (Wheel.dragging && Wheel.front) [ax, ay] = [p.x + Math.cos(p.a) * 600, p.y + Math.sin(p.a) * 600]; // steering from the wheel ahead of the tank: the gun looks straight ahead, ready for Space
     else if (Input.mouse.inside || Input.mouse.down) [ax, ay] = R.toWorld(Input.mouse.x, Input.mouse.y);
     if (ax != null) {
       const want = Math.atan2(ay - p.y, ax - p.x);
@@ -298,10 +299,9 @@ const Game = {
       p.aimY = p.y + Math.sin(p.a) * 400;
     }
     if (Input.mouse.down || Input.down('Space') || Input.touchAim.fire || Input.fireBtn) tryFirePlayer(p);
-    // battle: regain armour after 3 s out of fire
-    // battle: armour regenerates 10 points a second at all times, under fire or not
+    // battle: armour regenerates 5 points a second at all times, under fire or not
     p.regen = this.modeKey === 'battle' && p.hp < p.maxHp;
-    if (p.regen) p.hp = Math.min(p.maxHp, p.hp + 10 * dt);
+    if (p.regen) p.hp = Math.min(p.maxHp, p.hp + 5 * dt);
   },
   updateRespawns(dt) {
     const p = W.player;
@@ -309,12 +309,22 @@ const Game = {
       if (t === p || t.alive) continue;
       t.respawnT -= dt;
       if (t.respawnT > 0) continue;
-      if (t.team === 'enemy' && p && hypot(p.x - t.spawn.x, p.y - t.spawn.y) < 220) continue;
+      const home = t.spawn, at = this.respawnPoint(t);
+      if (!at) continue; // every spot is taken: try again next frame
       const lo = this.modeKey === 'fun' && t.team === 'enemy' ? randomEnemyLoadout(HULLS[t.hull].large) : { hull: t.hull, guns: t.guns };
-      const spawn = t.spawn;
-      Object.assign(t, makeTank({ team: t.team, ally: t.ally, outline: t.outline, hull: lo.hull, guns: lo.guns, x: spawn.x, y: spawn.y, a: spawn.a, hpMul: t.hpMul }));
+      Object.assign(t, makeTank({ team: t.team, ally: t.ally, outline: t.outline, hull: lo.hull, guns: lo.guns, x: at.x, y: at.y, a: at.a, hpMul: t.hpMul }));
+      t.spawn = home;
       anim('explosionSmoke', t.x, t.y, 1.1);
     }
+  },
+  // A destroyed NPC comes back on its own spot, unless the other side is parked on it; then on the nearest
+  // other tank spot of the sample map that is well clear of them, so camping a spawn can't stop the respawns.
+  respawnPoint(t) {
+    const clear = (s, gap) => W.tanks.every((o) => !o.alive || hypot(o.x - s.x, o.y - s.y) >= (o.team === t.team ? 80 : gap));
+    if (clear(t.spawn, 220)) return t.spawn;
+    const spots = MAPS.main.tanks.filter((d) => (d.hull === 'green') === (t.team === 'player'));
+    spots.sort((a, b) => hypot(a.x - t.spawn.x, a.y - t.spawn.y) - hypot(b.x - t.spawn.x, b.y - t.spawn.y));
+    return spots.find((s) => clear(s, 450)) || null;
   },
   updateWaves(dt) {
     const w = W.wave;
@@ -491,9 +501,14 @@ const App = {
     }
     Game.start(key);
   },
-  onEnemyKilled(t) {
+  onEnemyKilled(t, by) {
     if (W.wave) W.wave.killed++;
-    if (t && t.isLarge && Game.modeKey !== 'defense') HUD.toast(`击毁 ${t.H.name}`, 1.2);
+    const name = t ? t.H.name : '敌方炮台';
+    if (Game.modeKey !== 'defense' && by) {
+      if (by === W.player) {
+        if (!t || t.isLarge) HUD.toast(`击毁 ${name}`, 1.2);
+      } else if (by.team === 'player') HUD.toast(`${by.H ? '友方' + by.H.name : '友方炮台'}击毁 ${name}`, 1.2);
+    }
     if (Game.modeKey === 'fun') {
       Best.fun++;
       store.set('best', Best);
@@ -582,6 +597,7 @@ function frame(now) {
       Game.update(dt);
     }
     Cam.update(Game.paused ? 0 : dt);
+    Wheel.place();
     const sh = W.shake;
     R.apply(sh ? rand(-sh, sh) * 0.5 : 0, sh ? rand(-sh, sh) * 0.5 : 0);
     drawWorld(ctx);

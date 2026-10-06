@@ -204,16 +204,17 @@ function enemyVolley(t) {
   });
 }
 
-function damageTank(t, dmg, srcTeam) {
+// `by` is whatever fired the shot (a tank or a turret), null for exploding barrels
+function damageTank(t, dmg, srcTeam, by) {
   if (!t.alive) return;
   if (t.team === 'player' && W.mode.godMode) dmg = 0;
   t.hp -= dmg;
   t.hitT = 0;
   t.flash = 0.12;
-  if (t.hp <= 0) killTank(t, srcTeam);
+  if (t.hp <= 0) killTank(t, srcTeam, by);
 }
 
-function killTank(t, srcTeam) {
+function killTank(t, srcTeam, by) {
   t.alive = false;
   t.hp = 0;
   anim('explosion', t.x, t.y, 1.25 + (t.isLarge ? 0.5 : 0), rand(0, TAU));
@@ -226,8 +227,8 @@ function killTank(t, srcTeam) {
   }
   t.respawnT = W.mode.respawn;
   if (t.team === 'enemy') {
-    if (srcTeam === 'player') W.kills++;
-    App.onEnemyKilled(t);
+    if (by === W.player) W.kills++; // the score counts the player's own kills, not the ally's or the turret's
+    App.onEnemyKilled(t, by);
   } else App.onAllyKilled(t);
 }
 
@@ -323,17 +324,17 @@ function removeProp(o, smoke) {
   Flow.dirty = true;
 }
 
-function explode(x, y, radius, dmg, team) {
+function explode(x, y, radius, dmg, team, by = null) {
   anim('explosion', x, y, radius / 70, rand(0, TAU));
   addShake(radius / 9);
   for (const t of W.tanks) {
     if (!t.alive || t.team === team) continue;
     const d = hypot(t.x - x, t.y - y) - t.r;
-    if (d < radius) damageTank(t, dmg * (1 - Math.max(0, d) / radius * 0.6), team || 'env');
+    if (d < radius) damageTank(t, dmg * (1 - Math.max(0, d) / radius * 0.6), team || 'env', by);
   }
   for (const tu of W.turrets) {
     if (!tu.alive || tu.team === team) continue;
-    if (hypot(tu.gx - x, tu.gy - y) < radius + 20) damageTurret(tu, dmg * 0.8, team);
+    if (hypot(tu.gx - x, tu.gy - y) < radius + 20) damageTurret(tu, dmg * 0.8, team, by);
   }
   for (const o of W.props) {
     if (!o.alive || !o.solid || o.kind === 'oil') continue;
@@ -345,9 +346,11 @@ function explode(x, y, radius, dmg, team) {
 function makeTurret(d, team = 'enemy') {
   const base = makeProp('barricadeMetal', d.x, d.y, d.rot);
   W.props.push(base);
-  return { team, outline: team === 'player', gx: d.gx, gy: d.gy, a: deg(d.a), gun: d.gun, hp: 80, maxHp: 80, alive: true, cd: rand(1, 3), respawnT: 0, home: deg(d.a), hitT: 9 };
+  // the sandbags of its own emplacement: the turret fires over them
+  const cover = new Set(W.props.filter((o) => o.kind === 'sandbag' && hypot(o.x - d.gx, o.y - d.gy) < 150));
+  return { team, outline: team === 'player', gx: d.gx, gy: d.gy, a: deg(d.a), gun: d.gun, hp: 80, maxHp: 80, alive: true, cd: rand(1, 3), respawnT: 0, home: deg(d.a), hitT: 9, cover, think: 0, tgt: null, seen: false };
 }
-function damageTurret(tu, dmg, srcTeam) {
+function damageTurret(tu, dmg, srcTeam, by) {
   if (!tu.alive || srcTeam === tu.team) return;
   tu.hp -= dmg;
   tu.hitT = 0;
@@ -357,8 +360,8 @@ function damageTurret(tu, dmg, srcTeam) {
     anim('explosion', tu.gx, tu.gy, 1, rand(0, TAU));
     addShake(9);
     if (tu.team === 'enemy') {
-      if (srcTeam === 'player') W.kills++;
-      App.onEnemyKilled(null);
+      if (by === W.player) W.kills++;
+      App.onEnemyKilled(null, by);
     } else App.onAllyTurretLost();
   }
 }
@@ -367,18 +370,18 @@ function turretFire(tu) {
   const ex = tu.gx + Math.cos(tu.a) * (b.len - b.pivot[1]), ey = tu.gy + Math.sin(tu.a) * (b.len - b.pivot[1]);
   const a = tu.a + rand(-0.05, 0.05);
   const ours = tu.team === 'player';
-  W.bullets.push({ x: ex, y: ey, vx: Math.cos(a) * b.speed, vy: Math.sin(a) * b.speed, a, sprite: b.bullet + (ours ? '_outline' : ''), dmg: b.dmg * (ours ? 1 : W.mode.enemyDmg), team: tu.team, owner: tu, life: b.range / b.speed, splash: b.splash, pierce: 0, hit: new Set(), heavy: true });
+  W.bullets.push({ x: ex, y: ey, vx: Math.cos(a) * b.speed, vy: Math.sin(a) * b.speed, a, sprite: b.bullet + (ours ? '_outline' : ''), dmg: b.dmg * (ours ? 1 : W.mode.enemyDmg), team: tu.team, owner: tu, cover: tu.cover, life: b.range / b.speed, splash: b.splash, pierce: 0, hit: new Set(), heavy: true });
   const fl = img(b.flash);
   W.effects.push({ kind: 'flash', sprite: b.flash, x: ex + Math.cos(tu.a) * (fl.height / 2 + 6), y: ey + Math.sin(tu.a) * (fl.height / 2 + 6), rot: tu.a - Math.PI / 2, t: 0, life: 0.075 });
 }
 
 // ---------- line of sight & flow field ----------
-function lineClear(ax, ay, bx, by, ignoreLine) {
+function lineClear(ax, ay, bx, by, ignoreLine, skip) {
   const d = hypot(bx - ax, by - ay), n = Math.ceil(d / 18);
   for (let i = 1; i < n; i++) {
     const x = ax + ((bx - ax) * i) / n, y = ay + ((by - ay) * i) / n;
     for (const o of W.props) {
-      if (!o.alive || !o.blocksBullets || (ignoreLine && o.lineBag)) continue;
+      if (!o.alive || !o.blocksBullets || (ignoreLine && o.lineBag) || (skip && skip.has(o))) continue;
       if (Math.abs(o.x - x) > 70 || Math.abs(o.y - y) > 70) continue;
       if (obstDist(o, x, y) < 0) return false;
     }
@@ -586,9 +589,9 @@ function updateBullets(dt) {
         if (!t.alive || t.team === b.team || b.hit.has(t)) continue;
         if (hypot(t.x - b.x, t.y - b.y) > t.r) continue;
         b.hit.add(t);
-        damageTank(t, b.dmg, b.team);
+        damageTank(t, b.dmg, b.team, b.owner);
         if (b.splash) {
-          explode(b.x, b.y, b.splash, b.dmg * 0.6, b.team);
+          explode(b.x, b.y, b.splash, b.dmg * 0.6, b.team, b.owner);
           dead = true;
         } else {
           anim('explosion', b.x, b.y, b.heavy ? 0.6 : 0.42, rand(0, TAU));
@@ -601,8 +604,8 @@ function updateBullets(dt) {
       // enemy turrets
       for (const tu of W.turrets) {
           if (!tu.alive || tu.team === b.team || hypot(tu.gx - b.x, tu.gy - b.y) > 24) continue;
-          damageTurret(tu, b.dmg, b.team);
-          if (b.splash) explode(b.x, b.y, b.splash, b.dmg * 0.6, b.team);
+          damageTurret(tu, b.dmg, b.team, b.owner);
+          if (b.splash) explode(b.x, b.y, b.splash, b.dmg * 0.6, b.team, b.owner);
           else anim('explosion', b.x, b.y, 0.5, rand(0, TAU));
           dead = true;
           break;
@@ -612,10 +615,11 @@ function updateBullets(dt) {
       for (const o of W.props) {
         if (!o.alive || !o.blocksBullets) continue;
         if (o.lineBag && b.team === 'player') continue; // our own sandbag line: we fire over it
+        if (b.cover && b.cover.has(o)) continue; // a turret's shell clears its own emplacement
         if (Math.abs(o.x - b.x) > 80 || Math.abs(o.y - b.y) > 80) continue;
         if (obstDist(o, b.x, b.y) > 0) continue;
         hurtProp(o, b.dmg, Math.atan2(b.vy, b.vx));
-        if (b.splash) explode(b.x, b.y, b.splash, b.dmg * 0.6, b.team);
+        if (b.splash) explode(b.x, b.y, b.splash, b.dmg * 0.6, b.team, b.owner);
         else anim('explosionSmoke', b.x, b.y, b.heavy ? 0.55 : 0.4, rand(0, TAU));
         dead = true;
         break;
@@ -625,7 +629,7 @@ function updateBullets(dt) {
     if (!dead && (b.x < v.x - 60 || b.y < v.y - 60 || b.x > v.x + v.w + 60 || b.y > v.y + v.h + 60)) dead = true;
     if (!dead && b.life <= 0) {
       dead = true;
-      if (b.splash) explode(b.x, b.y, b.splash * 0.8, b.dmg * 0.5, b.team);
+      if (b.splash) explode(b.x, b.y, b.splash * 0.8, b.dmg * 0.5, b.team, b.owner);
       else anim('explosionSmoke', b.x, b.y, 0.3, rand(0, TAU));
     }
     if (!dead) out.push(b);
@@ -840,20 +844,31 @@ function updateTurrets(dt) {
     }
     let want = tu.home + Math.sin(W.time * 0.6) * 0.6;
     const armed = W.mode.enemyFire && W.mode.turretFire !== false;
-    let tgt = null, d = 760;
-    if (armed)
-      for (const o of W.tanks) {
-        if (!o.alive || o.team === tu.team) continue;
-        const od = hypot(o.x - tu.gx, o.y - tu.gy);
-        if (od < d) {
-          d = od;
-          tgt = o;
+    tu.think -= dt;
+    if (tu.think <= 0) {
+      // nearest tank of the other side within range; one it can actually hit beats a nearer one behind cover
+      tu.think = 0.25;
+      tu.tgt = null;
+      tu.seen = false;
+      let d = 760;
+      if (armed)
+        for (const o of W.tanks) {
+          if (!o.alive || o.team === tu.team) continue;
+          const od = hypot(o.x - tu.gx, o.y - tu.gy);
+          if (od > 760) continue;
+          const vis = lineClear(tu.gx, tu.gy, o.x, o.y, false, tu.cover);
+          if ((vis && !tu.seen) || (vis === tu.seen && od < d)) {
+            d = od;
+            tu.tgt = o;
+            tu.seen = vis;
+          }
         }
-      }
+    }
+    const tgt = armed && tu.tgt && tu.tgt.alive ? tu.tgt : null;
     if (tgt) want = Math.atan2(tgt.y - tu.gy, tgt.x - tu.gx);
     tu.a = angNorm(tu.a + clamp(angDiff(tu.a, want), -1.8 * dt, 1.8 * dt));
     tu.cd -= dt;
-    if (tgt && tu.cd <= 0 && Math.abs(angDiff(tu.a, want)) < 0.1 && lineClear(tu.gx, tu.gy, tgt.x, tgt.y)) {
+    if (tgt && tu.seen && tu.cd <= 0 && Math.abs(angDiff(tu.a, want)) < 0.1 && lineClear(tu.gx, tu.gy, tgt.x, tgt.y, false, tu.cover)) {
       turretFire(tu);
       tu.cd = W.mode.cooldown;
     }
