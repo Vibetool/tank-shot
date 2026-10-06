@@ -87,7 +87,7 @@ function setupShowcase() {
   W.mode = { key: 'showcase', enemyDmg: 0.5 };
   W.tanks = MAPS.main.tanks.map((d) => makeTank({ team: 'enemy', hull: d.hull, guns: d.guns, x: d.x, y: d.y, a: d.a }));
   W.player = null;
-  W.turrets = MAPS.main.turrets.map(makeTurret);
+  W.turrets = MAPS.main.turrets.map((d) => makeTurret(d));
   W.bullets = [];
   W.effects = [];
   introEffects(true);
@@ -96,7 +96,7 @@ function introEffects(frozen) {
   for (const [name, x, y, rot] of MAPS.main.intro) {
     const m = name.match(/^(explosionSmoke|explosion)(\d)$/);
     if (m) W.effects.push({ kind: 'anim', seq: m[1], x, y, scale: 1, rot: deg(rot), t: (+m[2] - 1) * 0.06 + 0.001, fd: frozen ? 1e9 : 0.06 });
-    else W.effects.push({ kind: 'flash', sprite: name, x, y, rot: deg(rot), t: 0, life: frozen ? 1e9 : 0.5 });
+    else if (W.tanks.some((t) => hypot(t.x - x, t.y - y) < 140)) W.effects.push({ kind: 'flash', sprite: name, x, y, rot: deg(rot), t: 0, life: frozen ? 1e9 : 0.5 });
   }
   // track marks behind the three tanks that were rolling in the sample
   for (const t of W.tanks) {
@@ -159,8 +159,8 @@ const Game = {
     W.wave = null;
     W.flowAt = null;
     W.mode = Object.assign({ key }, M, {
-      enemyDmg: key === 'battle' ? 0.15 : 0.3,
-      respawn: key === 'fun' ? 3 : 7,
+      enemyDmg: key === 'battle' ? 0.35 : 0.3,
+      respawn: 4,
       godMode: key === 'fun',
     });
     loadMap(M.map);
@@ -169,14 +169,20 @@ const Game = {
     const lo = Loadout;
     if (M.map === 'main') {
       const hpMul = key === 'fun' ? 0.5 : 0.6;
+      const roster = M.enemies; // undefined = every tank from the sample image
       for (const d of MAPS.main.tanks) {
         if (d.hull === 'green') {
           W.player = makeTank({ team: 'player', hull: lo.hull, guns: lo.guns, x: d.x, y: d.y, a: d.a, hpMul: key === 'battle' ? 1.6 : 1 });
           W.spawnPoint = [d.x, d.y];
           W.tanks.push(W.player);
-        } else W.tanks.push(makeTank({ team: 'enemy', hull: d.hull, guns: d.guns, x: d.x, y: d.y, a: d.a, hpMul }));
+          if (M.ally) {
+            // the friendly tank rolls in just behind the player
+            const a = deg(d.a);
+            W.tanks.push(makeTank({ team: 'player', ally: true, hull: M.ally.hull, guns: M.ally.guns, x: d.x - Math.cos(a) * 125, y: d.y - Math.sin(a) * 125, a: d.a }));
+          }
+        } else if (!roster || roster.includes(d.hull)) W.tanks.push(makeTank({ team: 'enemy', hull: d.hull, guns: d.guns, x: d.x, y: d.y, a: d.a, hpMul }));
       }
-      W.turrets = MAPS.main.turrets.map(makeTurret);
+      W.turrets = MAPS.main.turrets.map((d, i) => makeTurret(d, (M.turretTeams && M.turretTeams[i]) || 'enemy'));
       introEffects(false);
       this.hold = 0.7;
     } else {
@@ -239,7 +245,8 @@ const Game = {
           return false;
         });
       }
-      if (t.team === 'enemy') {
+      if (t.ally) aiAlly(t, dt);
+      else if (t.team === 'enemy') {
         if (this.modeKey === 'battle') aiBattle(t, dt);
         else if (this.modeKey === 'fun') aiWander(t, dt);
         else aiDefense(t, dt);
@@ -299,13 +306,13 @@ const Game = {
   updateRespawns(dt) {
     const p = W.player;
     for (const t of W.tanks) {
-      if (t.team !== 'enemy' || t.alive) continue;
+      if (t === p || t.alive) continue;
       t.respawnT -= dt;
       if (t.respawnT > 0) continue;
-      if (p && hypot(p.x - t.spawn.x, p.y - t.spawn.y) < 220) continue;
-      const lo = randomEnemyLoadout(HULLS[t.hull].large);
+      if (t.team === 'enemy' && p && hypot(p.x - t.spawn.x, p.y - t.spawn.y) < 220) continue;
+      const lo = this.modeKey === 'fun' && t.team === 'enemy' ? randomEnemyLoadout(HULLS[t.hull].large) : { hull: t.hull, guns: t.guns };
       const spawn = t.spawn;
-      Object.assign(t, makeTank({ team: 'enemy', hull: lo.hull, guns: lo.guns, x: spawn.x, y: spawn.y, a: spawn.a, hpMul: this.modeKey === 'fun' ? 0.5 : 0.6 }));
+      Object.assign(t, makeTank({ team: t.team, ally: t.ally, outline: t.outline, hull: lo.hull, guns: lo.guns, x: spawn.x, y: spawn.y, a: spawn.a, hpMul: t.hpMul }));
       anim('explosionSmoke', t.x, t.y, 1.1);
     }
   },
@@ -491,6 +498,12 @@ const App = {
       Best.fun++;
       store.set('best', Best);
     }
+  },
+  onAllyKilled(t) {
+    HUD.toast(`友方${t.H.name}被击毁，${W.mode.respawn} 秒后重生`, 1.6);
+  },
+  onAllyTurretLost() {
+    HUD.toast(`友方炮台被摧毁，${W.mode.respawn} 秒后重建`, 1.6);
   },
   onPlayerKilled() {
     if (Game.modeKey === 'battle') Game.finish('dead');

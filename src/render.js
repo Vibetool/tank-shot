@@ -134,15 +134,16 @@ function drawBarrel(ctx, t, i) {
 
 function drawTurretGun(ctx, tu) {
   const b = BARRELS[tu.gun];
-  const im = img(b.sprite);
+  const im = img(b.sprite + (tu.outline ? '_outline' : ''));
+  const px = b.pivot[0] + (tu.outline ? 4 : 0), py = b.pivot[1] + (tu.outline ? 4 : 0);
   const r = tu.a - Math.PI / 2, c = Math.cos(r), s = Math.sin(r);
   ctx.save();
   ctx.transform(c, s, -s, c, tu.gx, tu.gy);
-  ctx.drawImage(im, -b.pivot[0], -b.pivot[1]);
+  ctx.drawImage(im, -px, -py);
   if (tu.hitT < 0.1) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.5;
-    ctx.drawImage(im, -b.pivot[0], -b.pivot[1]);
+    ctx.drawImage(im, -px, -py);
   }
   ctx.restore();
 }
@@ -226,12 +227,13 @@ function drawOverlays(ctx) {
     const [x, y] = above(t.x, t.y, t.r * s + 18);
     if (x < -60 || y < -40 || x > R.W + 60 || y > R.H + 40) continue;
     if (t === W.player) drawBar(ctx, x - 30, y - 5, 60, 10, fr, t.regen ? 'progress_green_small_border' : 'progress_green_small');
+    else if (t.team === 'player') drawBar(ctx, x - 27, y - 5, 54, 10, fr, 'progress_blue_small'); // friendly: always shown, in blue
     else if (fr < 1 || t.hitT < 2) drawBar(ctx, x - 27, y - 5, 54, 10, fr, t.isLarge ? 'progress_red_small_border' : 'progress_red_small');
   }
   for (const tu of W.turrets) {
     if (!tu.alive || tu.hp >= tu.maxHp) continue;
     const [x, y] = above(tu.gx, tu.gy, 30 * s + 16);
-    drawBar(ctx, x - 24, y - 4, 48, 8, tu.hp / tu.maxHp, 'progress_white_small');
+    drawBar(ctx, x - 24, y - 4, 48, 8, tu.hp / tu.maxHp, tu.team === 'player' ? 'progress_blue_small' : 'progress_white_small');
   }
   for (const o of W.props) {
     if (!o.alive || o.hurtT == null || o.hp === Infinity || o.hp >= o.maxHp) continue;
@@ -287,8 +289,14 @@ const Radar = {
     if (W.mode.key === 'defense') {
       for (let y = 40; y < W.view.h; y += 160) icon('minimap_icon_star_white', W.map.lineX, y, 0.42);
     } else if (W.spawnPoint) icon('minimap_icon_star_yellow', W.spawnPoint[0], W.spawnPoint[1], 0.5);
-    for (const tu of W.turrets) icon(tu.alive ? 'minimap_icon_exclamation_red' : 'minimap_icon_exclamation_white', tu.gx, tu.gy, 0.62);
+    for (const tu of W.turrets) icon(!tu.alive ? 'minimap_icon_exclamation_white' : tu.team === 'player' ? 'minimap_icon_star_white' : 'minimap_icon_exclamation_red', tu.gx, tu.gy, 0.62);
     for (const t of W.tanks) {
+      if (t.team === 'player' && t !== p) {
+        // friendly tank: its own arrow; a white mark where it will come back
+        if (t.alive) icon('minimap_arrow_b', t.x, t.y, 0.62, t.a + Math.PI / 2 + rot);
+        else if (t.respawnT > 0) icon('minimap_icon_exclamation_white', t.spawn.x, t.spawn.y, 0.5);
+        continue;
+      }
       if (t.team !== 'enemy') continue;
       if (!t.alive) {
         if (t.respawnT > 0 && t.spawn) icon('minimap_icon_exclamation_white', t.spawn.x, t.spawn.y, 0.5);

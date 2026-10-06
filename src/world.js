@@ -135,7 +135,8 @@ function buildPerimeter() {
 function makeTank(o) {
   const H = HULLS[o.hull];
   const t = {
-    team: o.team, hull: o.hull, H, guns: o.guns.slice(), outline: o.team === 'player',
+    team: o.team, hull: o.hull, H, guns: o.guns.slice(), outline: o.outline != null ? o.outline : o.team === 'player',
+    ally: !!o.ally, hpMul: o.hpMul || 1,
     x: o.x, y: o.y, a: deg(o.a || 0), vx: 0, vy: 0, speed: 0, turret: deg(o.a || 0),
     r: H.r, hp: Math.round(H.hp * (o.hpMul || 1)), alive: true,
     cd: o.guns.map(() => 0), burst: [], recoil: o.guns.map(() => 0), heat: 0,
@@ -219,13 +220,15 @@ function killTank(t, srcTeam) {
   setTimeout(() => anim('explosionSmoke', t.x + rand(-20, 20), t.y + rand(-20, 20), 1.1, rand(0, TAU)), 160);
   addDecal('oilSpill_large', t.x, t.y, rand(0, TAU), 26, 0.85);
   addShake(t.isLarge ? 16 : 11);
+  if (t === W.player) {
+    App.onPlayerKilled();
+    return;
+  }
+  t.respawnT = W.mode.respawn;
   if (t.team === 'enemy') {
     if (srcTeam === 'player') W.kills++;
-    t.respawnT = W.mode.respawn;
     App.onEnemyKilled(t);
-  } else {
-    App.onPlayerKilled();
-  }
+  } else App.onAllyKilled(t);
 }
 
 // ---------- effects ----------
@@ -329,8 +332,8 @@ function explode(x, y, radius, dmg, team) {
     if (d < radius) damageTank(t, dmg * (1 - Math.max(0, d) / radius * 0.6), team || 'env');
   }
   for (const tu of W.turrets) {
-    if (!tu.alive || team === 'enemy') continue;
-    if (hypot(tu.gx - x, tu.gy - y) < radius + 20) damageTurret(tu, dmg * 0.8);
+    if (!tu.alive || tu.team === team) continue;
+    if (hypot(tu.gx - x, tu.gy - y) < radius + 20) damageTurret(tu, dmg * 0.8, team);
   }
   for (const o of W.props) {
     if (!o.alive || !o.solid || o.kind === 'oil') continue;
@@ -339,29 +342,32 @@ function explode(x, y, radius, dmg, team) {
 }
 
 // ---------- turrets (barricadeMetal + specialBarrel1, as placed in the sample) ----------
-function makeTurret(d) {
+function makeTurret(d, team = 'enemy') {
   const base = makeProp('barricadeMetal', d.x, d.y, d.rot);
   W.props.push(base);
-  return { gx: d.gx, gy: d.gy, a: deg(d.a), gun: d.gun, hp: 80, maxHp: 80, alive: true, cd: rand(1, 3), respawnT: 0, home: deg(d.a), hitT: 9 };
+  return { team, outline: team === 'player', gx: d.gx, gy: d.gy, a: deg(d.a), gun: d.gun, hp: 80, maxHp: 80, alive: true, cd: rand(1, 3), respawnT: 0, home: deg(d.a), hitT: 9 };
 }
-function damageTurret(tu, dmg) {
-  if (!tu.alive) return;
+function damageTurret(tu, dmg, srcTeam) {
+  if (!tu.alive || srcTeam === tu.team) return;
   tu.hp -= dmg;
   tu.hitT = 0;
   if (tu.hp <= 0) {
     tu.alive = false;
-    tu.respawnT = 20;
+    tu.respawnT = W.mode.respawn || 20; // rebuilt like any NPC
     anim('explosion', tu.gx, tu.gy, 1, rand(0, TAU));
     addShake(9);
-    W.kills++;
-    App.onEnemyKilled(null);
+    if (tu.team === 'enemy') {
+      if (srcTeam === 'player') W.kills++;
+      App.onEnemyKilled(null);
+    } else App.onAllyTurretLost();
   }
 }
 function turretFire(tu) {
   const b = BARRELS[tu.gun];
   const ex = tu.gx + Math.cos(tu.a) * (b.len - b.pivot[1]), ey = tu.gy + Math.sin(tu.a) * (b.len - b.pivot[1]);
   const a = tu.a + rand(-0.05, 0.05);
-  W.bullets.push({ x: ex, y: ey, vx: Math.cos(a) * b.speed, vy: Math.sin(a) * b.speed, a, sprite: b.bullet, dmg: b.dmg * W.mode.enemyDmg, team: 'enemy', owner: tu, life: b.range / b.speed, splash: b.splash, pierce: 0, hit: new Set(), heavy: true });
+  const ours = tu.team === 'player';
+  W.bullets.push({ x: ex, y: ey, vx: Math.cos(a) * b.speed, vy: Math.sin(a) * b.speed, a, sprite: b.bullet + (ours ? '_outline' : ''), dmg: b.dmg * (ours ? 1 : W.mode.enemyDmg), team: tu.team, owner: tu, life: b.range / b.speed, splash: b.splash, pierce: 0, hit: new Set(), heavy: true });
   const fl = img(b.flash);
   W.effects.push({ kind: 'flash', sprite: b.flash, x: ex + Math.cos(tu.a) * (fl.height / 2 + 6), y: ey + Math.sin(tu.a) * (fl.height / 2 + 6), rot: tu.a - Math.PI / 2, t: 0, life: 0.075 });
 }
@@ -593,10 +599,9 @@ function updateBullets(dt) {
       }
       if (dead) break;
       // enemy turrets
-      if (b.team === 'player')
-        for (const tu of W.turrets) {
-          if (!tu.alive || hypot(tu.gx - b.x, tu.gy - b.y) > 24) continue;
-          damageTurret(tu, b.dmg);
+      for (const tu of W.turrets) {
+          if (!tu.alive || tu.team === b.team || hypot(tu.gx - b.x, tu.gy - b.y) > 24) continue;
+          damageTurret(tu, b.dmg, b.team);
           if (b.splash) explode(b.x, b.y, b.splash, b.dmg * 0.6, b.team);
           else anim('explosion', b.x, b.y, 0.5, rand(0, TAU));
           dead = true;
@@ -690,35 +695,84 @@ function unstick(t, dt) {
   return false;
 }
 
+// nearest tank of the other side that can actually be seen
+function nearestFoe(t, range) {
+  let best = null, bd = range;
+  for (const o of W.tanks) {
+    if (!o.alive || o.team === t.team) continue;
+    const d = hypot(o.x - t.x, o.y - t.y);
+    if (d < bd && lineClear(t.x, t.y, o.x, o.y)) {
+      bd = d;
+      best = o;
+    }
+  }
+  return best;
+}
+
 function aiBattle(t, dt) {
-  const p = W.player;
-  const ai = t.ai;
-  if (!p || !p.alive) {
+  const ai = t.ai, p = W.player;
+  ai.think -= dt;
+  if (ai.think <= 0) {
+    ai.think = 0.25;
+    ai.target = nearestFoe(t, 900);
+  }
+  const tgt = ai.target && ai.target.alive ? ai.target : null;
+  const goal = tgt || (p && p.alive ? p : null); // nobody in sight: go and find the player
+  if (!goal) {
     t.throttle = 0;
     t.steer = 0;
     return;
   }
-  const d = hypot(p.x - t.x, p.y - t.y);
-  ai.think -= dt;
-  if (ai.think <= 0) {
-    ai.think = 0.25;
-    ai.los = lineClear(t.x, t.y, p.x, p.y);
-  }
-  const err = aiAimAt(t, p.x + p.vx * 0.25, p.y + p.vy * 0.25, dt);
+  const d = hypot(goal.x - t.x, goal.y - t.y);
+  const err = aiAimAt(t, goal.x + goal.vx * 0.25, goal.y + goal.vy * 0.25, dt);
   if (!unstick(t, dt)) {
-    if (d > 520 || !ai.los) {
+    if (!tgt || d > 520) {
       const fa = Flow.dir(t.x, t.y);
       if (fa != null) steerTo(t, fa, 0.9);
-      else steerTo(t, Math.atan2(p.y - t.y, p.x - t.x), 0.7);
+      else steerTo(t, Math.atan2(goal.y - t.y, goal.x - t.x), 0.7);
     } else if (d < 260) {
-      steerTo(t, Math.atan2(t.y - p.y, t.x - p.x), 0.6);
+      steerTo(t, Math.atan2(t.y - goal.y, t.x - goal.x), 0.6);
     } else {
-      // circle-strafe around the player
-      steerTo(t, Math.atan2(p.y - t.y, p.x - t.x) + (ai.strafe * Math.PI) / 2, 0.45);
+      // circle-strafe around whoever it is fighting
+      steerTo(t, Math.atan2(goal.y - t.y, goal.x - t.x) + (ai.strafe * Math.PI) / 2, 0.45);
     }
   }
   ai.cd -= dt;
-  if (W.mode.enemyFire && ai.cd <= 0 && ai.los && d < 750 && err < 0.08) {
+  if (W.mode.enemyFire && ai.cd <= 0 && tgt && d < 750 && err < 0.08) {
+    enemyVolley(t);
+    ai.cd = W.mode.cooldown;
+  }
+}
+
+// the friendly tank: sticks with the player and fights whatever enemy it can see, on the same 3 s cooldown
+function aiAlly(t, dt) {
+  const ai = t.ai, p = W.player;
+  ai.think -= dt;
+  if (ai.think <= 0) {
+    ai.think = 0.3;
+    ai.target = nearestFoe(t, 850);
+  }
+  const tgt = ai.target && ai.target.alive ? ai.target : null;
+  let err = 9, d = 0;
+  if (tgt) {
+    d = hypot(tgt.x - t.x, tgt.y - t.y);
+    err = aiAimAt(t, tgt.x + tgt.vx * 0.25, tgt.y + tgt.vy * 0.25, dt);
+  } else aiAimAt(t, t.x + Math.cos(t.a) * 300, t.y + Math.sin(t.a) * 300, dt, 1.5);
+  if (!unstick(t, dt)) {
+    const dp = p && p.alive ? hypot(p.x - t.x, p.y - t.y) : 0;
+    if (p && p.alive && dp > (tgt ? 560 : 260)) {
+      // the path field leads to the player, so the ally uses it to catch up
+      const fa = Flow.dir(t.x, t.y);
+      steerTo(t, fa != null ? fa : Math.atan2(p.y - t.y, p.x - t.x), dp > 600 ? 1 : 0.7);
+    } else if (tgt && d < 300) steerTo(t, Math.atan2(t.y - tgt.y, t.x - tgt.x), 0.5);
+    else if (tgt) steerTo(t, Math.atan2(tgt.y - t.y, tgt.x - t.x) - (ai.strafe * Math.PI) / 2, 0.4);
+    else {
+      t.throttle = 0;
+      t.steer = 0;
+    }
+  }
+  ai.cd -= dt;
+  if (W.mode.enemyFire && ai.cd <= 0 && tgt && d < 750 && err < 0.1) {
     enemyVolley(t);
     ai.cd = W.mode.cooldown;
   }
@@ -773,7 +827,6 @@ function aiDefense(t, dt) {
 }
 
 function updateTurrets(dt) {
-  const p = W.player;
   for (const tu of W.turrets) {
     tu.hitT += dt;
     if (!tu.alive) {
@@ -786,11 +839,21 @@ function updateTurrets(dt) {
       continue;
     }
     let want = tu.home + Math.sin(W.time * 0.6) * 0.6;
-    const d = p && p.alive ? hypot(p.x - tu.gx, p.y - tu.gy) : 1e9;
-    if (d < 760) want = Math.atan2(p.y - tu.gy, p.x - tu.gx);
+    const armed = W.mode.enemyFire && W.mode.turretFire !== false;
+    let tgt = null, d = 760;
+    if (armed)
+      for (const o of W.tanks) {
+        if (!o.alive || o.team === tu.team) continue;
+        const od = hypot(o.x - tu.gx, o.y - tu.gy);
+        if (od < d) {
+          d = od;
+          tgt = o;
+        }
+      }
+    if (tgt) want = Math.atan2(tgt.y - tu.gy, tgt.x - tu.gx);
     tu.a = angNorm(tu.a + clamp(angDiff(tu.a, want), -1.8 * dt, 1.8 * dt));
     tu.cd -= dt;
-    if (W.mode.enemyFire && tu.cd <= 0 && d < 760 && Math.abs(angDiff(tu.a, want)) < 0.1 && lineClear(tu.gx, tu.gy, p.x, p.y)) {
+    if (tgt && tu.cd <= 0 && Math.abs(angDiff(tu.a, want)) < 0.1 && lineClear(tu.gx, tu.gy, tgt.x, tgt.y)) {
       turretFire(tu);
       tu.cd = W.mode.cooldown;
     }

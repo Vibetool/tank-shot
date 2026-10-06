@@ -117,7 +117,9 @@ function loadoutStats(lo) {
 
 const MODES = {
   fun: { name: '超爽模式', map: 'main', enemyFire: false, free: true },
-  battle: { name: '普通战场', map: 'main', enemyFire: true, cooldown: 3 },
+  // 普通战场: the player + a friendly 暗影 against 红魔重坦 + 钢铁堡垒; the turret near the player's spawn
+  // (MAPS.main.turrets[1]) fights for the player, the far one (turrets[0]) for the enemy
+  battle: { name: '普通战场', map: 'main', enemyFire: true, cooldown: 3, enemies: ['bigRed', 'darkLarge'], ally: { hull: 'dark', guns: ['d1'] }, turretTeams: ['enemy', 'player'] },
   defense: { name: '防守', map: 'defense', enemyFire: true, cooldown: 3, waves: 10 },
 };
 

@@ -66,13 +66,13 @@ const CARDS = [
   {
     key: 'fun', panel: 'pz-brown-corners-a', medal: 'medal-1', icon: 'tank_huge', title: '超爽模式',
     desc: '敌方坦克只会到处跑，不会开火。车体和炮管随便组合，红黑炮管也能装在小坦克上。',
-    rules: [['on', '敌方坦克不攻击'], ['on', '装备组合不受限制'], ['on', '被击毁的敌人 3 秒后重生'], ['na', '没有失败条件，随时可以退出']],
+    rules: [['on', '敌方坦克不攻击'], ['on', '装备组合不受限制'], ['on', '被击毁的敌人 4 秒后重生'], ['na', '没有失败条件，随时可以退出']],
     best: (v) => `累计击毁 ${v}`,
   },
   {
     key: 'battle', panel: 'pz-brown-corners-b', medal: 'medal-2', icon: 'explosion3', title: '普通战场',
-    desc: '和示例图一模一样的战场。每辆敌方坦克和固定炮台开火后要冷却 3 秒才能再打。',
-    rules: [['off', '敌方攻击冷却 3 秒'], ['off', '固定炮台也会开火'], ['on', '耐久每秒持续回复 10 点'], ['na', '红黑炮管只能装在大型坦克上']],
+    desc: '你和友方「暗影」坦克，对阵敌方「红魔重坦」和「钢铁堡垒」。地图两座炮台一座帮你、一座帮敌人。',
+    rules: [['on', '友方暗影坦克、友方炮台并肩作战'], ['off', '敌方坦克和炮台开火冷却 3 秒'], ['on', '耐久每秒持续回复 10 点'], ['na', '双方被击毁后都 4 秒重生']],
     best: (v) => `最高击毁 ${v}`,
   },
   {
@@ -103,10 +103,13 @@ function buildModes() {
     box.appendChild(card);
   }
   refreshModes();
-  // briefing: the roster on the battlefield, straight from the sample image
-  const roster = MAPS.main.tanks.filter((t) => t.hull !== 'green');
-  $('brief').innerHTML = `<b>作战简报</b>　战场按 Kenney 示例图 1:1 还原：草地与沙漠各占一半，道路、树木、沙袋、木箱和油桶的位置都和原图相同。
-    <div class="roster">敌军：${roster.map((t) => `<span><img alt="" src="${tSrc(HULLS[t.hull].comp)}">${HULLS[t.hull].name}</span>`).join('')}<span><img alt="" src="${tSrc('barricadeMetal')}">固定炮台 ×2</span></div>`;
+  // briefing: who fights where. 超爽 uses every tank from the sample image; 普通战场 has its own fixed roster
+  const unit = (src, name) => `<span><img alt="" src="${src}">${name}</span>`;
+  const sample = MAPS.main.tanks.filter((t) => t.hull !== 'green');
+  const B = MODES.battle;
+  $('brief').innerHTML = `<b>作战简报</b>　战场按 Kenney 示例图 1:1 还原（四周各扩出 4 格）：草地与沙漠各占一半，道路、树木、沙袋、木箱和油桶的位置都和原图相同。
+    <div class="roster">普通战场　友方：${unit(tSrc(HULLS[B.ally.hull].comp), HULLS[B.ally.hull].name)}${unit(tSrc('barricadeMetal'), '炮台')}　敌方：${B.enemies.map((h) => unit(tSrc(HULLS[h].comp), HULLS[h].name)).join('')}${unit(tSrc('barricadeMetal'), '炮台')}</div>
+    <div class="roster">超爽模式　敌方：${sample.map((t) => unit(tSrc(HULLS[t.hull].comp), HULLS[t.hull].name)).join('')}</div>`;
 }
 function refreshModes() {
   const bad = loadoutProblems(Loadout).length > 0;
