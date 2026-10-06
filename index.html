@@ -406,6 +406,7 @@ const ASSETS = {"t":{"barrelBlack_side":"data:image/png;base64,iVBORw0KGgoAAAANS
 </script>
 <script>
 'use strict';
+const DEBUG = location.hash === '#debug';
 // ---------- math ----------
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -451,13 +452,11 @@ const IMG = {}; // tank sprites
 const UIIMG = {}; // UI sprites drawn on canvas
 const USED = new Set(); // which sprites the game has touched (debug: window.tankAssetReport())
 function img(name) {
-  USED.add('t:' + name);
-  const im = IMG[name];
-  if (!im) console.warn('missing sprite', name);
-  return im;
+  if (DEBUG) USED.add('t:' + name);
+  return IMG[name];
 }
 function uimg(name) {
-  USED.add('u:' + name);
+  if (DEBUG) USED.add('u:' + name);
   return UIIMG[name];
 }
 function uiSrc(name) {
@@ -489,7 +488,6 @@ async function loadAssets() {
 }
 
 // debug only (open with #debug): mark UI sprites that CSS classes put on screen
-const DEBUG = location.hash === '#debug';
 let uriTail = null;
 function noteCssSprites(rootEl) {
   if (!uriTail) uriTail = new Map(Object.entries(ASSETS.u).map(([k, v]) => [v.slice(-48), k]));
@@ -559,11 +557,30 @@ function show(id, on = true) {
   e.hidden = !on;
   if (on && DEBUG) setTimeout(() => noteCssSprites(e), 300);
 }
+let barEpoch = 0;
+addEventListener('resize', () => barEpoch++);
 function setBar(id, frac) {
   const b = typeof id === 'string' ? $(id) : id;
-  const w = b.clientWidth + 16;
-  b.firstElementChild.style.width = Math.max(16, Math.round(clamp(frac, 0, 1) * w)) + 'px';
-  b.firstElementChild.style.opacity = frac <= 0.001 ? 0 : 1;
+  if (b._epoch !== barEpoch || !b._w) {
+    b._w = b.clientWidth + 16;
+    b._epoch = barEpoch;
+  }
+  const px = Math.max(16, Math.round(clamp(frac, 0, 1) * b._w)), op = frac <= 0.001 ? 0 : 1;
+  if (px === b._px && op === b._op) return;
+  b._px = px;
+  b._op = op;
+  b.firstElementChild.style.width = px + 'px';
+  b.firstElementChild.style.opacity = op;
+}
+// write text / inline styles only when they actually change (keeps the HUD from re-laying out every frame)
+function setText(id, v) {
+  const e = $(id);
+  v = String(v);
+  if (e._t !== v) e.textContent = e._t = v;
+}
+function setTop(e, pct) {
+  const v = Math.round(pct) + '%';
+  if (e._top !== v) e.style.top = e._top = v;
 }
 function fmtTime(t) {
   t = Math.max(0, Math.floor(t));
@@ -1191,41 +1208,49 @@ const Flow = {
     if (this.dirty) this.rebuildBlock();
     const { cols, rows, dist, block } = this;
     dist.fill(Infinity);
-    const heap = [];
+    // binary heap on typed arrays: no garbage per node, so a recompute costs a couple of ms
+    const cap = cols * rows * 8;
+    if (!this.hi || this.hi.length < cap) {
+      this.hi = new Int32Array(cap);
+      this.hd = new Float32Array(cap);
+    }
+    const HI = this.hi, HD = this.hd;
+    let size = 0;
     const push = (i, d) => {
-      heap.push([d, i]);
-      let k = heap.length - 1;
+      let k = size++;
       while (k > 0) {
         const p = (k - 1) >> 1;
-        if (heap[p][0] <= heap[k][0]) break;
-        [heap[p], heap[k]] = [heap[k], heap[p]];
+        if (HD[p] <= d) break;
+        HI[k] = HI[p];
+        HD[k] = HD[p];
         k = p;
       }
-    };
-    const pop = () => {
-      const top = heap[0], last = heap.pop();
-      if (heap.length) {
-        heap[0] = last;
-        let k = 0;
-        for (;;) {
-          const l = 2 * k + 1, r = l + 1;
-          let m = k;
-          if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
-          if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
-          if (m === k) break;
-          [heap[m], heap[k]] = [heap[k], heap[m]];
-          k = m;
-        }
-      }
-      return top;
+      HI[k] = i;
+      HD[k] = d;
     };
     for (const [x, y] of targets) {
       const c = clamp(Math.floor((x - this.ox) / this.cell), 0, cols - 1), r = clamp(Math.floor((y - this.oy) / this.cell), 0, rows - 1);
       dist[r * cols + c] = 0;
       push(r * cols + c, 0);
     }
-    while (heap.length) {
-      const [d, i] = pop();
+    while (size > 0) {
+      const i = HI[0], d = HD[0];
+      size--;
+      if (size > 0) {
+        const li = HI[size], ld = HD[size];
+        let k = 0;
+        for (;;) {
+          let ch = 2 * k + 1;
+          if (ch >= size) break;
+          if (ch + 1 < size && HD[ch + 1] < HD[ch]) ch++;
+          if (HD[ch] >= ld) break;
+          HI[k] = HI[ch];
+          HD[k] = HD[ch];
+          k = ch;
+        }
+        HI[k] = li;
+        HD[k] = ld;
+      }
       if (d > dist[i]) continue;
       const c = i % cols, r = (i / cols) | 0;
       for (let dr = -1; dr <= 1; dr++)
@@ -1581,7 +1606,7 @@ const R = {
     this.resize();
   },
   resize() {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.dpr = Math.min(this.cap, window.devicePixelRatio || 1);
     this.W = innerWidth;
     this.H = innerHeight;
     this.cv.width = Math.round(this.W * this.dpr);
@@ -1619,7 +1644,19 @@ const R = {
     c.fillStyle = '#3b3125';
     c.fillRect(0, 0, this.cv.width, this.cv.height);
     c.imageSmoothingEnabled = true;
-    c.imageSmoothingQuality = 'high';
+    c.imageSmoothingQuality = 'low';
+  },
+  // drop the backing-store resolution step by step when frames keep running long on this machine
+  ft: 16, slowFor: 0, cap: 2,
+  watch(frameMs) {
+    this.ft += (Math.min(frameMs, 100) - this.ft) * 0.05;
+    this.slowFor = this.ft > 24 ? this.slowFor + frameMs : 0;
+    if (this.slowFor > 1500 && this.cap > 1) {
+      this.cap = Math.max(1, this.cap - 0.5);
+      this.slowFor = 0;
+      this.ft = 16;
+      this.resize();
+    }
   },
 };
 
@@ -2208,10 +2245,13 @@ const HUD = {
     const p = W.player;
     if (!p) return;
     const fr = p.hp / p.maxHp;
-    $('hpNum').textContent = Math.max(0, Math.ceil(p.hp)) + ' / ' + p.maxHp;
-    const bar = $('hpBar');
-    bar.classList.toggle('fill-green', fr >= 0.3);
-    bar.classList.toggle('fill-red', fr < 0.3);
+    setText('hpNum', Math.max(0, Math.ceil(p.hp)) + ' / ' + p.maxHp);
+    const bar = $('hpBar'), low = fr < 0.3;
+    if (bar._low !== low) {
+      bar._low = low;
+      bar.classList.toggle('fill-green', !low);
+      bar.classList.toggle('fill-red', low);
+    }
     setBar(bar, fr);
     let ready = 0, tot = 0, sig = '';
     p.guns.forEach((g, i) => {
@@ -2227,10 +2267,10 @@ const HUD = {
     }
     setBar('reloadBar', tot / p.guns.length);
     const sp = clamp(p.speed / p.H.speed, 0, 1);
-    $('gSpeed').firstElementChild.style.top = (1 - sp) * 100 + '%';
-    $('gHeat').firstElementChild.style.top = (1 - p.heat) * 100 + '%';
-    $('killNum').textContent = W.kills;
-    $('timeChip').textContent = fmtTime(W.time);
+    setTop($('gSpeed').firstElementChild, (1 - sp) * 100);
+    setTop($('gHeat').firstElementChild, (1 - p.heat) * 100);
+    setText('killNum', W.kills);
+    setText('timeChip', fmtTime(W.time));
   },
   toast(text, sec = 2.2) {
     const t = $('toast');
@@ -2531,6 +2571,7 @@ const Game = {
     W.turrets = [];
     W.tanks = [];
     W.wave = null;
+    W.flowAt = null;
     W.mode = Object.assign({ key }, M, {
       enemyDmg: key === 'battle' ? 0.15 : 0.3,
       respawn: key === 'fun' ? 3 : 7,
@@ -2621,8 +2662,10 @@ const Game = {
     // pathfinding refresh
     if (this.modeKey === 'battle') {
       W.flowT -= dt;
-      if ((W.flowT <= 0 || Flow.dirty) && p && p.alive) {
-        W.flowT = 0.45;
+      const moved = p && W.flowAt ? hypot(p.x - W.flowAt[0], p.y - W.flowAt[1]) : 1e9;
+      if (((W.flowT <= 0 && moved > 24) || Flow.dirty) && p && p.alive) {
+        W.flowT = 0.5;
+        W.flowAt = [p.x, p.y];
         Flow.compute([[p.x, p.y]]);
       }
     } else if (this.modeKey === 'defense' && Flow.dirty) Flow.compute(defenseTargets());
@@ -2715,14 +2758,17 @@ const Game = {
     let near = 9999;
     for (const t of alive) near = Math.min(near, t.x - t.r - W.map.lineX);
     const danger = near < 260;
-    $('alert').hidden = !danger;
-    $('danger').classList.toggle('on', danger);
-    $('waveBox').classList.toggle('pz-grey-bolts-blue', !danger);
-    $('waveBox').classList.toggle('pz-grey-red', danger);
-    $('gLine').firstElementChild.style.top = clamp(near / 1200, 0, 1) * 100 + '%';
-    $('waveNum').textContent = w.n;
-    $('waveText').textContent = `第 ${w.n} / ${MODES.defense.waves} 波`;
-    $('leftText').textContent = `剩余 ${alive.length + w.toSpawn}`;
+    if (w._danger !== danger) {
+      w._danger = danger;
+      $('alert').hidden = !danger;
+      $('danger').classList.toggle('on', danger);
+      $('waveBox').classList.toggle('pz-grey-bolts-blue', !danger);
+      $('waveBox').classList.toggle('pz-grey-red', danger);
+    }
+    setTop($('gLine').firstElementChild, clamp(near / 1200, 0, 1) * 100);
+    setText('waveNum', w.n);
+    setText('waveText', `第 ${w.n} / ${MODES.defense.waves} 波`);
+    setText('leftText', `剩余 ${alive.length + w.toSpawn}`);
     setBar('waveBar', w.total ? w.killed / w.total : 0);
   },
   finish(kind) {
@@ -2899,10 +2945,13 @@ $('garageGo').onclick = () => {
 };
 
 // ---------- main loop ----------
-let lastT = performance.now();
+let lastT = performance.now(), frameNo = 0;
 function frame(now) {
-  const dt = Math.min(0.033, (now - lastT) / 1000);
+  const raw = now - lastT;
+  const dt = Math.min(0.033, raw / 1000);
   lastT = now;
+  frameNo++;
+  if (App.screen === 'play' && !Game.paused) R.watch(raw);
   R.clear();
   const ctx = R.ctx;
   if (App.screen === 'home') {
@@ -2922,7 +2971,7 @@ function frame(now) {
     R.apply(sh ? rand(-sh, sh) * 0.5 : 0, sh ? rand(-sh, sh) * 0.5 : 0);
     drawWorld(ctx);
     drawOverlays(ctx);
-    if (Settings.radar) Radar.draw();
+    if (Settings.radar && frameNo % 2 === 0) Radar.draw();
     HUD.update();
   }
   requestAnimationFrame(frame);

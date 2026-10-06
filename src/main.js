@@ -153,6 +153,7 @@ const Game = {
     W.turrets = [];
     W.tanks = [];
     W.wave = null;
+    W.flowAt = null;
     W.mode = Object.assign({ key }, M, {
       enemyDmg: key === 'battle' ? 0.15 : 0.3,
       respawn: key === 'fun' ? 3 : 7,
@@ -243,8 +244,10 @@ const Game = {
     // pathfinding refresh
     if (this.modeKey === 'battle') {
       W.flowT -= dt;
-      if ((W.flowT <= 0 || Flow.dirty) && p && p.alive) {
-        W.flowT = 0.45;
+      const moved = p && W.flowAt ? hypot(p.x - W.flowAt[0], p.y - W.flowAt[1]) : 1e9;
+      if (((W.flowT <= 0 && moved > 24) || Flow.dirty) && p && p.alive) {
+        W.flowT = 0.5;
+        W.flowAt = [p.x, p.y];
         Flow.compute([[p.x, p.y]]);
       }
     } else if (this.modeKey === 'defense' && Flow.dirty) Flow.compute(defenseTargets());
@@ -337,14 +340,17 @@ const Game = {
     let near = 9999;
     for (const t of alive) near = Math.min(near, t.x - t.r - W.map.lineX);
     const danger = near < 260;
-    $('alert').hidden = !danger;
-    $('danger').classList.toggle('on', danger);
-    $('waveBox').classList.toggle('pz-grey-bolts-blue', !danger);
-    $('waveBox').classList.toggle('pz-grey-red', danger);
-    $('gLine').firstElementChild.style.top = clamp(near / 1200, 0, 1) * 100 + '%';
-    $('waveNum').textContent = w.n;
-    $('waveText').textContent = `第 ${w.n} / ${MODES.defense.waves} 波`;
-    $('leftText').textContent = `剩余 ${alive.length + w.toSpawn}`;
+    if (w._danger !== danger) {
+      w._danger = danger;
+      $('alert').hidden = !danger;
+      $('danger').classList.toggle('on', danger);
+      $('waveBox').classList.toggle('pz-grey-bolts-blue', !danger);
+      $('waveBox').classList.toggle('pz-grey-red', danger);
+    }
+    setTop($('gLine').firstElementChild, clamp(near / 1200, 0, 1) * 100);
+    setText('waveNum', w.n);
+    setText('waveText', `第 ${w.n} / ${MODES.defense.waves} 波`);
+    setText('leftText', `剩余 ${alive.length + w.toSpawn}`);
     setBar('waveBar', w.total ? w.killed / w.total : 0);
   },
   finish(kind) {
@@ -521,10 +527,13 @@ $('garageGo').onclick = () => {
 };
 
 // ---------- main loop ----------
-let lastT = performance.now();
+let lastT = performance.now(), frameNo = 0;
 function frame(now) {
-  const dt = Math.min(0.033, (now - lastT) / 1000);
+  const raw = now - lastT;
+  const dt = Math.min(0.033, raw / 1000);
   lastT = now;
+  frameNo++;
+  if (App.screen === 'play' && !Game.paused) R.watch(raw);
   R.clear();
   const ctx = R.ctx;
   if (App.screen === 'home') {
@@ -544,7 +553,7 @@ function frame(now) {
     R.apply(sh ? rand(-sh, sh) * 0.5 : 0, sh ? rand(-sh, sh) * 0.5 : 0);
     drawWorld(ctx);
     drawOverlays(ctx);
-    if (Settings.radar) Radar.draw();
+    if (Settings.radar && frameNo % 2 === 0) Radar.draw();
     HUD.update();
   }
   requestAnimationFrame(frame);

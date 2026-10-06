@@ -1,4 +1,5 @@
 'use strict';
+const DEBUG = location.hash === '#debug';
 // ---------- math ----------
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -44,13 +45,11 @@ const IMG = {}; // tank sprites
 const UIIMG = {}; // UI sprites drawn on canvas
 const USED = new Set(); // which sprites the game has touched (debug: window.tankAssetReport())
 function img(name) {
-  USED.add('t:' + name);
-  const im = IMG[name];
-  if (!im) console.warn('missing sprite', name);
-  return im;
+  if (DEBUG) USED.add('t:' + name);
+  return IMG[name];
 }
 function uimg(name) {
-  USED.add('u:' + name);
+  if (DEBUG) USED.add('u:' + name);
   return UIIMG[name];
 }
 function uiSrc(name) {
@@ -82,7 +81,6 @@ async function loadAssets() {
 }
 
 // debug only (open with #debug): mark UI sprites that CSS classes put on screen
-const DEBUG = location.hash === '#debug';
 let uriTail = null;
 function noteCssSprites(rootEl) {
   if (!uriTail) uriTail = new Map(Object.entries(ASSETS.u).map(([k, v]) => [v.slice(-48), k]));
@@ -152,11 +150,30 @@ function show(id, on = true) {
   e.hidden = !on;
   if (on && DEBUG) setTimeout(() => noteCssSprites(e), 300);
 }
+let barEpoch = 0;
+addEventListener('resize', () => barEpoch++);
 function setBar(id, frac) {
   const b = typeof id === 'string' ? $(id) : id;
-  const w = b.clientWidth + 16;
-  b.firstElementChild.style.width = Math.max(16, Math.round(clamp(frac, 0, 1) * w)) + 'px';
-  b.firstElementChild.style.opacity = frac <= 0.001 ? 0 : 1;
+  if (b._epoch !== barEpoch || !b._w) {
+    b._w = b.clientWidth + 16;
+    b._epoch = barEpoch;
+  }
+  const px = Math.max(16, Math.round(clamp(frac, 0, 1) * b._w)), op = frac <= 0.001 ? 0 : 1;
+  if (px === b._px && op === b._op) return;
+  b._px = px;
+  b._op = op;
+  b.firstElementChild.style.width = px + 'px';
+  b.firstElementChild.style.opacity = op;
+}
+// write text / inline styles only when they actually change (keeps the HUD from re-laying out every frame)
+function setText(id, v) {
+  const e = $(id);
+  v = String(v);
+  if (e._t !== v) e.textContent = e._t = v;
+}
+function setTop(e, pct) {
+  const v = Math.round(pct) + '%';
+  if (e._top !== v) e.style.top = e._top = v;
 }
 function fmtTime(t) {
   t = Math.max(0, Math.floor(t));

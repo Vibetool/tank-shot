@@ -11,7 +11,7 @@ const R = {
     this.resize();
   },
   resize() {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.dpr = Math.min(this.cap, window.devicePixelRatio || 1);
     this.W = innerWidth;
     this.H = innerHeight;
     this.cv.width = Math.round(this.W * this.dpr);
@@ -49,7 +49,19 @@ const R = {
     c.fillStyle = '#3b3125';
     c.fillRect(0, 0, this.cv.width, this.cv.height);
     c.imageSmoothingEnabled = true;
-    c.imageSmoothingQuality = 'high';
+    c.imageSmoothingQuality = 'low';
+  },
+  // drop the backing-store resolution step by step when frames keep running long on this machine
+  ft: 16, slowFor: 0, cap: 2,
+  watch(frameMs) {
+    this.ft += (Math.min(frameMs, 100) - this.ft) * 0.05;
+    this.slowFor = this.ft > 24 ? this.slowFor + frameMs : 0;
+    if (this.slowFor > 1500 && this.cap > 1) {
+      this.cap = Math.max(1, this.cap - 0.5);
+      this.slowFor = 0;
+      this.ft = 16;
+      this.resize();
+    }
   },
 };
 

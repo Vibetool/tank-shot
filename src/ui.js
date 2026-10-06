@@ -323,10 +323,13 @@ const HUD = {
     const p = W.player;
     if (!p) return;
     const fr = p.hp / p.maxHp;
-    $('hpNum').textContent = Math.max(0, Math.ceil(p.hp)) + ' / ' + p.maxHp;
-    const bar = $('hpBar');
-    bar.classList.toggle('fill-green', fr >= 0.3);
-    bar.classList.toggle('fill-red', fr < 0.3);
+    setText('hpNum', Math.max(0, Math.ceil(p.hp)) + ' / ' + p.maxHp);
+    const bar = $('hpBar'), low = fr < 0.3;
+    if (bar._low !== low) {
+      bar._low = low;
+      bar.classList.toggle('fill-green', !low);
+      bar.classList.toggle('fill-red', low);
+    }
     setBar(bar, fr);
     let ready = 0, tot = 0, sig = '';
     p.guns.forEach((g, i) => {
@@ -342,10 +345,10 @@ const HUD = {
     }
     setBar('reloadBar', tot / p.guns.length);
     const sp = clamp(p.speed / p.H.speed, 0, 1);
-    $('gSpeed').firstElementChild.style.top = (1 - sp) * 100 + '%';
-    $('gHeat').firstElementChild.style.top = (1 - p.heat) * 100 + '%';
-    $('killNum').textContent = W.kills;
-    $('timeChip').textContent = fmtTime(W.time);
+    setTop($('gSpeed').firstElementChild, (1 - sp) * 100);
+    setTop($('gHeat').firstElementChild, (1 - p.heat) * 100);
+    setText('killNum', W.kills);
+    setText('timeChip', fmtTime(W.time));
   },
   toast(text, sec = 2.2) {
     const t = $('toast');

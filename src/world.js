@@ -412,41 +412,49 @@ const Flow = {
     if (this.dirty) this.rebuildBlock();
     const { cols, rows, dist, block } = this;
     dist.fill(Infinity);
-    const heap = [];
+    // binary heap on typed arrays: no garbage per node, so a recompute costs a couple of ms
+    const cap = cols * rows * 8;
+    if (!this.hi || this.hi.length < cap) {
+      this.hi = new Int32Array(cap);
+      this.hd = new Float32Array(cap);
+    }
+    const HI = this.hi, HD = this.hd;
+    let size = 0;
     const push = (i, d) => {
-      heap.push([d, i]);
-      let k = heap.length - 1;
+      let k = size++;
       while (k > 0) {
         const p = (k - 1) >> 1;
-        if (heap[p][0] <= heap[k][0]) break;
-        [heap[p], heap[k]] = [heap[k], heap[p]];
+        if (HD[p] <= d) break;
+        HI[k] = HI[p];
+        HD[k] = HD[p];
         k = p;
       }
-    };
-    const pop = () => {
-      const top = heap[0], last = heap.pop();
-      if (heap.length) {
-        heap[0] = last;
-        let k = 0;
-        for (;;) {
-          const l = 2 * k + 1, r = l + 1;
-          let m = k;
-          if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
-          if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
-          if (m === k) break;
-          [heap[m], heap[k]] = [heap[k], heap[m]];
-          k = m;
-        }
-      }
-      return top;
+      HI[k] = i;
+      HD[k] = d;
     };
     for (const [x, y] of targets) {
       const c = clamp(Math.floor((x - this.ox) / this.cell), 0, cols - 1), r = clamp(Math.floor((y - this.oy) / this.cell), 0, rows - 1);
       dist[r * cols + c] = 0;
       push(r * cols + c, 0);
     }
-    while (heap.length) {
-      const [d, i] = pop();
+    while (size > 0) {
+      const i = HI[0], d = HD[0];
+      size--;
+      if (size > 0) {
+        const li = HI[size], ld = HD[size];
+        let k = 0;
+        for (;;) {
+          let ch = 2 * k + 1;
+          if (ch >= size) break;
+          if (ch + 1 < size && HD[ch + 1] < HD[ch]) ch++;
+          if (HD[ch] >= ld) break;
+          HI[k] = HI[ch];
+          HD[k] = HD[ch];
+          k = ch;
+        }
+        HI[k] = li;
+        HD[k] = ld;
+      }
       if (d > dist[i]) continue;
       const c = i % cols, r = (i / cols) | 0;
       for (let dr = -1; dr <= 1; dr++)
