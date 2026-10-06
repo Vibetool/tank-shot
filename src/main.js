@@ -292,11 +292,9 @@ const Game = {
     }
     if (Input.mouse.down || Input.down('Space') || Input.touchAim.fire || Input.fireBtn) tryFirePlayer(p);
     // battle: regain armour after 3 s out of fire
-    p.regen = false;
-    if (this.modeKey === 'battle' && p.hitT > 3 && p.hp < p.maxHp) {
-      p.hp = Math.min(p.maxHp, p.hp + 10 * dt);
-      p.regen = true;
-    }
+    // battle: armour regenerates 10 points a second at all times, under fire or not
+    p.regen = this.modeKey === 'battle' && p.hp < p.maxHp;
+    if (p.regen) p.hp = Math.min(p.maxHp, p.hp + 10 * dt);
   },
   updateRespawns(dt) {
     const p = W.player;
