@@ -72,7 +72,7 @@ const CARDS = [
   {
     key: 'battle', panel: 'pz-brown-corners-b', medal: 'medal-2', icon: 'explosion3', title: '普通战场',
     desc: '和示例图一模一样的战场。每辆敌方坦克和固定炮台开火后要冷却 3 秒才能再打。',
-    rules: [['off', '敌方攻击冷却 3 秒'], ['off', '固定炮台也会开火'], ['on', '脱战 3 秒后自动回复耐久'], ['na', '红黑炮管只能装在大型坦克上']],
+    rules: [['off', '敌方攻击冷却 3 秒'], ['off', '固定炮台也会开火'], ['on', '脱战 3 秒后每秒回复 10 耐久'], ['na', '红黑炮管只能装在大型坦克上']],
     best: (v) => `最高击毁 ${v}`,
   },
   {
@@ -214,7 +214,7 @@ const Garage = {
       <li><i class="chk chk-brown-na"></i><span>红黑炮管只能装在大型坦克（红魔重坦、钢铁堡垒、巨像）上，大型坦克可同时装 ${HULLS.huge.mounts.length} 门以内的炮。超爽模式不限制。</span></li></ul>`;
     const s = loadoutStats(this.lo);
     const rows = [
-      ['耐久', s.hp / 360, s.hp, 'fill-green-b'],
+      ['耐久', s.hp / 720, s.hp, 'fill-green-b'],
       ['机动', s.speed / 210, s.speed, 'fill-blue-b'],
       ['火力', Math.min(1, s.dps / 220), Math.round(s.dps), 'fill-red-b'],
       ['射速', Math.min(1, s.rate / 14), s.rate.toFixed(1) + '/秒', 'fill-white-b'],

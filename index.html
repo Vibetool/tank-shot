@@ -375,7 +375,7 @@
       <button class="opt" id="optRadar"><i class="chk chk-grey-on"></i>显示雷达</button>
       <button class="opt" id="optTracks"><i class="chk chk-grey-on"></i>显示履带痕迹</button>
       <button class="opt" id="optBars"><i class="chk chk-grey-on"></i>显示血条</button>
-      <div class="opt" id="optRegen" aria-disabled="true"><i class="chk chk-grey-x"></i>脱战自动回复耐久（仅普通战场）</div>
+      <div class="opt" id="optRegen" aria-disabled="true"><i class="chk chk-grey-x"></i>脱战 3 秒后每秒回复 10 耐久（仅普通战场）</div>
       <div class="slider"><span>画面震动</span><div class="track" id="shakeTrack" role="slider" tabindex="0" aria-label="画面震动强度" aria-valuemin="0" aria-valuemax="100"><i></i></div><span id="shakeVal">60%</span></div>
     </div>
     <div class="menu-btns"><button class="btn btn-brown nine" id="pResume">继续</button><button class="btn btn-grey nine" id="pRestart">重新开始</button><button class="btn btn-red nine" id="pHome">返回主页</button></div>
@@ -654,14 +654,14 @@ const Input = {
 // Sprites face down (+y) at rotation 0, so a hull with heading h is drawn at rotation h - 90deg.
 // Mount offsets are measured from the factory composites (tank_*.png): x = sprite right, y = towards the nose.
 const HULLS = {
-  green: { name: '丛林', color: 'Green', body: 'tankBody_green', comp: 'tank_green', hp: 110, speed: 185, turn: 2.8, r: 35, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  sand: { name: '沙暴', color: 'Sand', body: 'tankBody_sand', comp: 'tank_sand', hp: 120, speed: 175, turn: 2.7, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  red: { name: '赤焰', color: 'Red', body: 'tankBody_red', comp: 'tank_red', hp: 95, speed: 210, turn: 3.1, r: 33, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  blue: { name: '海军', color: 'Blue', body: 'tankBody_blue', comp: 'tank_blue', hp: 130, speed: 165, turn: 2.6, r: 36, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  dark: { name: '暗影', color: 'Dark', body: 'tankBody_dark', comp: 'tank_dark', hp: 150, speed: 150, turn: 2.4, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  bigRed: { name: '红魔重坦', color: 'Red', large: true, body: 'tankBody_bigRed', comp: 'tank_bigRed', hp: 230, speed: 128, turn: 2.0, r: 44, trackW: 12, tracks: 'tracksLarge', mounts: [[-20, -9], [20, -9]] },
-  darkLarge: { name: '钢铁堡垒', color: 'Dark', large: true, body: 'tankBody_darkLarge', comp: 'tank_darkLarge', hp: 270, speed: 118, turn: 1.85, r: 48, trackW: 16, tracks: 'tracksLarge', mounts: [[-20, -17, 1], [20, -17]] },
-  huge: { name: '巨像', color: 'Dark', large: true, body: 'tankBody_huge', comp: 'tank_huge', hp: 360, speed: 102, turn: 1.6, r: 57, trackW: 20, tracks: 'tracksDouble', mounts: [[0, -35], [-20, 31, 1], [20, 31]] },
+  green: { name: '丛林', color: 'Green', body: 'tankBody_green', comp: 'tank_green', hp: 220, speed: 185, turn: 2.8, r: 35, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  sand: { name: '沙暴', color: 'Sand', body: 'tankBody_sand', comp: 'tank_sand', hp: 240, speed: 175, turn: 2.7, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  red: { name: '赤焰', color: 'Red', body: 'tankBody_red', comp: 'tank_red', hp: 190, speed: 210, turn: 3.1, r: 33, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  blue: { name: '海军', color: 'Blue', body: 'tankBody_blue', comp: 'tank_blue', hp: 260, speed: 165, turn: 2.6, r: 36, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  dark: { name: '暗影', color: 'Dark', body: 'tankBody_dark', comp: 'tank_dark', hp: 300, speed: 150, turn: 2.4, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  bigRed: { name: '红魔重坦', color: 'Red', large: true, body: 'tankBody_bigRed', comp: 'tank_bigRed', hp: 460, speed: 128, turn: 2.0, r: 44, trackW: 12, tracks: 'tracksLarge', mounts: [[-20, -9], [20, -9]] },
+  darkLarge: { name: '钢铁堡垒', color: 'Dark', large: true, body: 'tankBody_darkLarge', comp: 'tank_darkLarge', hp: 540, speed: 118, turn: 1.85, r: 48, trackW: 16, tracks: 'tracksLarge', mounts: [[-20, -17, 1], [20, -17]] },
+  huge: { name: '巨像', color: 'Dark', large: true, body: 'tankBody_huge', comp: 'tank_huge', hp: 720, speed: 102, turn: 1.6, r: 57, trackW: 20, tracks: 'tracksDouble', mounts: [[0, -35], [-20, 31, 1], [20, 31]] },
 };
 const HULL_ORDER = ['green', 'sand', 'red', 'blue', 'dark', 'bigRed', 'darkLarge', 'huge'];
 
@@ -772,11 +772,10 @@ const MODES = {
   defense: { name: '防守', map: 'defense', enemyFire: true, cooldown: 3, waves: 10 },
 };
 
-// main map spawn-time loadouts come straight from the sample image's tanks
-const SAMPLE_VIEW = { w: 1836, h: 1030 }; // Sample.png at 2x
 
 // generated from Kenney Sample.png by the map extraction scripts; do not hand-edit tiles
-const MAPS = {"main":{"tiles":[["Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180","Grass_roadCornerLR","Grass_roadEast","Grass_roadTransitionE","Sand_roadSplitS","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadCornerLL","Sand1","Sand1"],["Grass1","Grass1","Grass_roadNorth","Grass1","Grass_roadNorth","Grass2@180","Grass_transitionE","Sand_roadNorth","Sand2@180","Sand1","Sand1","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180"],["Grass_roadEast","Grass_roadEast","Grass_roadCrossingRound","Grass_roadEast","Grass_roadCornerUL","Grass1","Grass_transitionE","Sand_roadCornerUR","Sand_roadCornerLL","Sand2@180","Sand2@180","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180"],["Grass1","Grass1","Grass_roadNorth","Grass2@180","Grass1","Grass2@180","Grass_transitionE","Sand1","Sand_roadNorth","Sand1","Sand1","Sand1","Sand_roadNorth","Sand1","Sand1"],["Grass2@180","Grass2@180","Grass_roadCornerUR","Grass_roadSplitS","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE_dirt","Sand_roadEast","Sand_roadCrossing","Sand_roadEast","Sand_roadEast","Sand_roadCornerLL","Sand_roadNorth","Sand2@180","Sand2@180"],["Grass1","Grass1","Grass2@180","Grass_roadNorth","Grass2@180","Grass1","Grass_transitionE","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand_roadNorth","Sand_roadNorth","Sand2@180","Sand2@180"],["Grass2@180","Grass2@180","Grass1","Grass_roadNorth","Grass1","Grass2@180","Grass_transitionE","Sand1","Sand_roadNorth","Sand1","Sand1","Sand_roadCornerUR","Sand_roadCrossing","Sand_roadEast","Sand_roadEast"],["Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadCornerUL","Grass2@180","Grass1","Grass_transitionE","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand2@180"],["Grass2@180","Grass2@180","Grass1","Grass1","Grass2@180","Grass1","Grass_transitionE","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand2@180"]],"origin":[-54,-44],"props":[["treeGreen_twigs",130.0,186.0,-45.0],["fenceRed",494.0,248.0,-120.0],["treeGreen_small",194.0,346.0,0.0],["treeGreen_twigs",456.0,408.0,-91.0],["treeGreen_small",376.0,442.0,-105.5],["barricadeWood",604.0,480.0,-105.5],["barricadeWood",548.0,556.0,-74.5],["fenceYellow",676.0,526.0,-86.5],["treeBrown_large",884.0,378.0,180.0],["sandbagBeige",180.0,500.0,-92.0],["sandbagBeige",188.0,558.0,-104.0],["sandbagBeige",224.0,600.0,-150.5],["sandbagBeige",278.0,620.0,-172.0],["treeGreen_large",36.0,538.0,180.0],["crateWood",1356.0,70.0,-37.0],["crateWood",1458.0,94.0,-121.0],["crateWood",1378.0,148.0,14.5],["treeBrown_twigs",1014.0,352.0,-105.0],["sandbagBrown",1136.0,358.0,-74.0],["sandbagBrown",1136.0,420.0,-104.0],["sandbagBrown",1190.0,444.0,-175.0],["sandbagBrown",1246.0,442.0,-9.0],["barrelRed_top",1494.0,340.0,0],["oilSpill_large",1502.0,436.0,-0.5],["barrelRed_side",1532.0,394.0,-120.5],["oilSpill_small",1538.0,512.0,-8.0],["treeBrown_small",1676.0,522.0,-0.5],["treeGreen_large",512.0,672.0,0.0],["treeGreen_small",626.0,620.0,0.5],["treeGreen_small",564.0,744.0,-1.0],["sandbagBeige",714.0,686.0,-104.5],["sandbagBeige",714.0,738.0,104.0],["sandbagBeige",714.0,790.0,90.5],["sandbagBeige",714.0,880.0,-66.5],["wireCrooked",782.0,816.0,-4.0],["barrelGreen_top",770.0,852.0,0],["treeBrown_large",1136.0,794.0,-16.0],["treeBrown_small",1102.0,880.0,44.0],["fenceRed",1422.0,710.0,-15.5],["fenceRed",1522.0,792.0,-75.5],["crateMetal",1356.0,836.0,-144.0],["crateMetal",1412.0,796.0,-119.5],["crateMetal",1438.0,856.0,135.5],["barrelBlack_top",1388.0,904.0,0],["treeBrown_large",1726.0,648.0,120.0],["treeBrown_small",1798.0,850.0,-0.5],["treeBrown_twigs",1686.0,750.0,-165.5]],"tanks":[{"hull":"bigRed","x":442.0,"y":90.0,"a":105.0,"guns":["x1","x1"]},{"hull":"darkLarge","x":298.0,"y":228.0,"a":74.0,"guns":["x4","x4"]},{"hull":"huge","x":583.0,"y":184.1,"a":75.5,"guns":["x1","x4","x4"]},{"hull":"blue","x":999.9,"y":229.0,"a":-165.0,"guns":["b2"]},{"hull":"red","x":1613.0,"y":170.8,"a":119.5,"guns":["r1"]},{"hull":"green","x":332.8,"y":865.0,"a":-30.0,"guns":["g3"]},{"hull":"sand","x":1099.8,"y":571.6,"a":-165.0,"guns":["s2"]}],"turrets":[{"x":1210.0,"y":378.0,"rot":-0.5,"gx":1213.1,"gy":369.5,"a":-253.5,"gun":"x1"},{"x":778.0,"y":754.0,"rot":-14.5,"gx":787.0,"gy":755.8,"a":-181.0,"gun":"x1"}],"intro":[["shotLarge",296.0,289.0,-12.5],["shotLarge",330.0,279.0,-14.0],["shotThin",920.0,208.0,105.0],["shotRed",417.0,816.0,-120.0],["explosionSmoke2",647.0,142.0,0.0],["explosionSmoke3",439.0,563.0,180.0],["explosionSmoke4",334.0,649.0,0.0],["explosion3",1406.0,97.0,-0.5]],"trackMarks":[["tracksSmall",1066,226,-75],["tracksSmall",1150,226,-75],["tracksSmall",1660,104,30],["tracksSmall",1166,590,-75]]},"defense":{"tiles":[["Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand2@180","Sand2@180","Sand2@180","Sand2@180","Grass_transitionW","Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180"],["Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE","Sand_roadEast","Sand_roadEast","Sand_roadSplitS","Sand_roadEast","Grass_roadTransitionW","Grass_roadEast","Grass_roadEast","Grass_roadSplitW","Grass1"],["Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand1","Sand_roadNorth","Sand1","Grass_transitionW","Grass1","Grass1","Grass_roadNorth","Grass1"],["Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand2@180","Sand2@180","Sand_roadNorth","Sand2@180","Grass_transitionW","Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180"],["Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE_dirt","Sand_roadEast","Sand_roadEast","Sand_roadCrossingRound","Sand_roadEast","Grass_roadTransitionW_dirt","Grass_roadEast","Grass_roadEast","Grass_roadCrossing","Grass_roadEast"],["Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand1","Sand_roadNorth","Sand1","Grass_transitionW","Grass1","Grass1","Grass_roadNorth","Grass1"],["Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand2@180","Sand2@180","Sand_roadNorth","Sand2@180","Grass_transitionW","Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180"],["Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE","Sand_roadEast","Sand_roadEast","Sand_roadSplitN","Sand_roadEast","Grass_roadTransitionW","Grass_roadEast","Grass_roadEast","Grass_roadSplitW","Grass1"],["Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand1","Sand1","Sand1","Grass_transitionW","Grass1","Grass1","Grass_roadNorth","Grass1"]],"origin":[-42,-61],"props":[["crateWood",300,300,8],["crateWood",354,316,-12],["crateWood",322,356,25],["barrelRust_top",70,330,0],["barrelRust_side",104,372,70],["oilSpill_small",128,392,0],["barrelGreen_side",430,770,-30],["sandbagBrown_open",300,705,0],["sandbagBeige_open",246,690,20],["crateMetal_side",380,640,10],["treeGreen_large",30,640,0],["treeGreen_small",56,970,0],["treeGreen_twigs",300,990,40],["fenceYellow",236,214,90],["wireStraight",440,420,70],["treeGreen_small",400,220,0],["barricadeMetal",850,320,0],["barricadeMetal",1120,705,15],["barricadeMetal",905,775,-10],["barricadeWood",1140,300,20],["barricadeWood",800,640,-15],["crateMetal",960,646,45],["crateMetal",1004,676,30],["crateMetal",994,608,10],["crateWood_side",780,236,15],["barrelBlack_top",1150,420,0],["oilSpill_large",1172,474,0],["barrelBlack_side",1182,456,120],["barrelRed_top",830,992,0],["treeBrown_large",1120,1000,0],["treeBrown_small",790,410,0],["treeBrown_twigs",960,250,30],["wireCrooked",1080,330,30],["fenceRed",1210,600,85],["fenceRed",870,452,5],["oilSpill_large",1046,515,0],["treeBrown_leaf",975,262,10],["treeGreen_large",1480,300,0],["treeGreen_large",1790,700,0],["treeGreen_small",1560,760,0],["treeGreen_small",1450,990,0],["treeGreen_twigs",1760,300,-20],["crateWood",1800,1000,15],["barrelGreen_top",1600,330,0],["barricadeWood",1420,640,10],["treeGreen_leaf",1770,312,40]],"lineX":534},"home":{"tiles":[["Sand2@180","Sand_roadCornerLR","Sand_roadEast","Sand_roadEast","Sand_roadSplitW","Sand2@180","Sand2@180","Sand2@180","Sand2@180"],["Grass_transitionN","Grass_roadTransitionN_dirt","Grass_transitionN","Grass_transitionN","Grass_roadTransitionN","Grass_transitionN","Grass_transitionN","Grass_transitionN","Grass_transitionN"],["Grass_roadEast","Grass_roadSplitN","Grass_roadEast","Grass_roadEast","Grass_roadCrossing","Grass_roadEast","Grass_roadEast","Grass_roadCornerLL","Grass1"],["Grass_transitionS","Grass_transitionS","Grass_transitionS","Grass_transitionS","Grass_roadTransitionS","Grass_transitionS","Grass_transitionS","Grass_roadTransitionS_dirt","Grass_transitionS"],["Sand1","Sand1","Sand1","Sand1","Sand_roadSplitE","Sand_roadEast","Sand_roadEast","Sand_roadCornerUL","Sand1"]],"origin":[0,0],"props":[["sandbagBrown",300,212,0],["sandbagBrown",348,216,8],["sandbagBeige_open",846,432,15],["sandbagBrown_open",356,446,-10],["crateWood_side",212,200,20],["crateMetal_side",930,196,-15],["crateMetal",986,240,30],["barrelRust_top",866,208,0],["barrelRust_side",222,452,60],["oilSpill_small",248,470,0],["barrelBlack_side",1004,470,-40],["barrelGreen_side",124,204,100],["wireStraight",716,452,75],["treeBrown_large",110,566,0],["treeBrown_small",1046,72,0],["treeGreen_twigs",430,178,0],["treeGreen_small",760,170,0],["fenceYellow",470,452,0],["fenceRed",690,184,0]]}};
+// main: the sample map (15x9) with 4 extra tiles on every side and a ring road
+const MAPS = {"main":{"tiles":[["Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1"],["Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180"],["Grass1","Grass1","Grass_roadCornerLR","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadSplitS","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadCornerLL","Sand1","Sand1"],["Grass1","Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand1"],["Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180","Grass_roadCornerLR","Grass_roadEast","Grass_roadTransitionE","Sand_roadSplitS","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadCornerLL","Sand1","Sand1","Sand2@180","Sand_roadNorth","Sand1","Sand2@180"],["Grass1","Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_roadNorth","Grass1","Grass_roadNorth","Grass2@180","Grass_transitionE","Sand_roadNorth","Sand2@180","Sand1","Sand1","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand1","Sand1"],["Grass1","Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadCrossingRound","Grass_roadEast","Grass_roadCornerUL","Grass1","Grass_transitionE","Sand_roadCornerUR","Sand_roadCornerLL","Sand2@180","Sand2@180","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand1"],["Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180","Grass1","Grass1","Grass_roadNorth","Grass2@180","Grass1","Grass2@180","Grass_transitionE","Sand1","Sand_roadNorth","Sand1","Sand1","Sand1","Sand_roadNorth","Sand1","Sand1","Sand2@180","Sand_roadNorth","Sand1","Sand2@180"],["Grass1","Grass1","Grass_roadNorth","Grass1","Grass2@180","Grass2@180","Grass_roadCornerUR","Grass_roadSplitS","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE_dirt","Sand_roadEast","Sand_roadCrossing","Sand_roadEast","Sand_roadEast","Sand_roadCornerLL","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand1","Sand1"],["Grass1","Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass2@180","Grass_roadNorth","Grass2@180","Grass1","Grass_transitionE","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand_roadNorth","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand1"],["Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass1","Grass_roadNorth","Grass1","Grass2@180","Grass_transitionE","Sand1","Sand_roadNorth","Sand1","Sand1","Sand_roadCornerUR","Sand_roadCrossing","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadSplitW","Sand1","Sand2@180"],["Grass1","Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadCornerUL","Grass2@180","Grass1","Grass_transitionE","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand1","Sand1"],["Grass1","Grass1","Grass_roadNorth","Grass1","Grass2@180","Grass2@180","Grass1","Grass1","Grass2@180","Grass1","Grass_transitionE","Sand2@180","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand2@180","Sand1","Sand_roadNorth","Sand2@180","Sand1"],["Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand1","Sand_roadNorth","Sand2@180","Sand1","Sand1","Sand_roadNorth","Sand1","Sand1","Sand2@180","Sand_roadNorth","Sand1","Sand2@180"],["Grass1","Grass1","Grass_roadCornerUR","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE_dirt","Sand_roadEast","Sand_roadSplitN","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadSplitN","Sand_roadEast","Sand_roadEast","Sand_roadEast","Sand_roadCornerUL","Sand1","Sand1"],["Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1"],["Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180","Sand1","Sand1","Sand2@180"]],"origin":[-566,-556],"props":[["treeGreen_twigs",130.0,186.0,-45.0],["fenceRed",494.0,248.0,-120.0],["treeGreen_small",194.0,346.0,0.0],["treeGreen_twigs",456.0,408.0,-91.0],["treeGreen_small",376.0,442.0,-105.5],["barricadeWood",604.0,480.0,-105.5],["barricadeWood",548.0,556.0,-74.5],["fenceYellow",676.0,526.0,-86.5],["treeBrown_large",884.0,378.0,180.0],["sandbagBeige",180.0,500.0,-92.0],["sandbagBeige",188.0,558.0,-104.0],["sandbagBeige",224.0,600.0,-150.5],["sandbagBeige",278.0,620.0,-172.0],["treeGreen_large",36.0,538.0,180.0],["crateWood",1356.0,70.0,-37.0],["crateWood",1458.0,94.0,-121.0],["crateWood",1378.0,148.0,14.5],["treeBrown_twigs",1014.0,352.0,-105.0],["sandbagBrown",1136.0,358.0,-74.0],["sandbagBrown",1136.0,420.0,-104.0],["sandbagBrown",1190.0,444.0,-175.0],["sandbagBrown",1246.0,442.0,-9.0],["barrelRed_top",1494.0,340.0,0],["oilSpill_large",1502.0,436.0,-0.5],["barrelRed_side",1532.0,394.0,-120.5],["oilSpill_small",1538.0,512.0,-8.0],["treeBrown_small",1676.0,522.0,-0.5],["treeGreen_large",512.0,672.0,0.0],["treeGreen_small",626.0,620.0,0.5],["treeGreen_small",564.0,744.0,-1.0],["sandbagBeige",714.0,686.0,-104.5],["sandbagBeige",714.0,738.0,104.0],["sandbagBeige",714.0,790.0,90.5],["sandbagBeige",714.0,880.0,-66.5],["wireCrooked",782.0,816.0,-4.0],["barrelGreen_top",770.0,852.0,0],["treeBrown_large",1136.0,794.0,-16.0],["treeBrown_small",1102.0,880.0,44.0],["fenceRed",1422.0,710.0,-15.5],["fenceRed",1522.0,792.0,-75.5],["crateMetal",1356.0,836.0,-144.0],["crateMetal",1412.0,796.0,-119.5],["crateMetal",1438.0,856.0,135.5],["barrelBlack_top",1388.0,904.0,0],["treeBrown_large",1726.0,648.0,120.0],["treeBrown_small",1798.0,850.0,-0.5],["treeBrown_twigs",1686.0,750.0,-165.5],["treeBrown_large",1942.6,1081.0,0],["crateWood",121.4,1424.2,3.5],["crateWood",175.4,1432.2,18.8],["crateWood",143.4,1478.2,14.7],["treeBrown_small",2034.3,-372.4,0],["barrelGreen_top",1803.1,1473.8,0],["barrelGreen_top",1849.1,1483.8,0],["oilSpill_small",1823.1,1517.8,65.5],["fenceRed",1250.3,1451.6,70.2],["barrelRed_top",-425.2,386.2,0],["barrelBlack_top",-379.2,396.2,0],["treeBrown_large",2251.1,1139.9,180],["treeBrown_twigs",2252.9,-43.0,34.6],["fenceRed",1485.2,1424.7,-11.4],["barrelRust_top",955.3,1490.2,0],["barrelRust_top",1001.3,1500.2,0],["fenceYellow",371.9,1432.4,1.9],["treeBrown_small",1471.2,-385.3,180],["treeBrown_twigs",1758.4,-389.4,255.8],["treeGreen_small",-96.5,-364.1,180],["crateMetal",2042.0,1499.4,8.6],["crateMetal",2096.0,1507.4,-2.1],["sandbagBrown",-197.2,528.3,1.1],["sandbagBrown",-137.4,534.2,11.1],["sandbagBrown",-77.7,540.0,2.8],["wireStraight",92.9,-111.1,90.9],["treeGreen_large",-325.1,-400.9,90],["treeGreen_small",-255.1,-354.9,0],["fenceRed",1184.7,-422.3,-29.9],["wireStraight",2247.3,805.9,43.5],["treeGreen_twigs",521.3,1413.6,144.0],["treeBrown_small",2238.7,-194.1,90],["treeGreen_large",-56.6,1177.6,0],["crateMetal",1835.2,-98.2,15.2],["crateMetal",1889.2,-90.2,18.6],["crateMetal",1857.2,-44.2,27.7],["sandbagBeige",2192.2,412.0,96.3],["sandbagBeige",2190.8,471.9,90.2],["sandbagBeige",2189.5,531.9,86.3],["treeGreen_small",-383.9,624.5,180],["barrelGreen_top",-128.1,764.2,0],["barrelRust_top",-82.1,774.2,0],["oilSpill_small",-108.1,808.2,23.9],["treeGreen_twigs",-383.4,1176.2,54.2],["barrelGreen_top",-125.5,-113.1,0],["barrelRust_top",-79.5,-103.1,0],["crateWood",272.3,-422.8,22.4],["crateWood",326.3,-414.8,17.9],["crateWood",294.3,-368.8,2.6],["barrelRed_top",1926.3,302.2,0],["barrelGreen_top",1972.3,312.2,0],["treeGreen_small",-436.6,-286.2,180],["treeGreen_small",-366.6,-240.2,0],["treeBrown_twigs",2210.8,976.4,262.2],["barrelBlack_top",977.9,-105.4,0],["barrelGreen_top",1023.9,-95.4,0],["oilSpill_small",997.9,-61.4,301.8],["treeGreen_twigs",648.2,1188.2,115.2],["wireStraight",1651.9,-88.9,69.0],["wireStraight",1947.7,904.2,269.2],["treeGreen_twigs",381.5,1151.1,180.2],["treeGreen_twigs",-98.5,1487.6,294.6],["crateWood",176.6,1171.0,72.3],["crateWood",230.6,1179.0,84.5],["crateWood",198.6,1225.0,52.5],["treeGreen_large",577.3,-92.4,0],["crateWood",617.0,-434.2,34.8],["crateWood",671.0,-426.2,45.1],["treeGreen_small",62.1,-373.4,90],["treeBrown_small",1691.0,1185.6,180],["barrelRust_top",827.5,1183.5,0],["barrelGreen_top",873.5,1193.5,0],["oilSpill_small",847.5,1227.5,200.0],["treeGreen_small",-415.2,953.3,180],["barrelRed_top",775.2,-110.4,0],["barrelRed_top",821.2,-100.4,0],["treeBrown_small",2233.1,1394.8,0],["treeBrown_large",964.5,-419.7,180],["treeBrown_small",1034.5,-373.7,0],["treeGreen_twigs",-421.3,216.7,105.2],["fenceRed",2186.0,93.7,-9.4],["fenceRed",1911.5,555.8,14.6],["sandbagBrown",-304.9,1423.8,-4.8],["sandbagBrown",-245.1,1418.3,0.6],["sandbagBrown",-185.4,1412.7,-3.1],["treeBrown_large",2173.3,248.6,270],["treeBrown_small",2243.3,294.6,0],["treeGreen_small",681.6,1457.4,270],["crateWood",-395.9,-4.1,77.4],["crateWood",-341.9,3.9,68.9],["crateWood",-373.9,49.9,55.7],["crateMetal",2229.3,-354.5,85.6],["crateMetal",2283.3,-346.5,99.6],["crateMetal",2251.3,-300.5,65.1],["fenceRed",1451.9,-103.8,80.5],["barrelBlack_top",-440.2,1357.0,0],["barrelGreen_top",-394.2,1367.0,0],["oilSpill_small",-420.2,1401.0,334.0],["treeBrown_large",1638.0,1434.8,180],["treeBrown_small",1708.0,1480.8,0],["barrelGreen_top",1159.4,1158.8,0],["barrelBlack_top",1205.4,1168.8,0],["oilSpill_small",1179.4,1202.8,155.2],["wireCrooked",413.6,-94.6,193.9],["treeBrown_small",1260.8,-108.9,270],["treeGreen_large",-131.5,117.3,270],["wireStraight",-359.1,772.6,33.0]],"tanks":[{"hull":"bigRed","x":442.0,"y":90.0,"a":105.0,"guns":["x1","x1"]},{"hull":"darkLarge","x":298.0,"y":228.0,"a":74.0,"guns":["x4","x4"]},{"hull":"huge","x":583.0,"y":184.1,"a":75.5,"guns":["x1","x4","x4"]},{"hull":"blue","x":999.9,"y":229.0,"a":-165.0,"guns":["b2"]},{"hull":"red","x":1613.0,"y":170.8,"a":119.5,"guns":["r1"]},{"hull":"green","x":332.8,"y":865.0,"a":-30.0,"guns":["g3"]},{"hull":"sand","x":1099.8,"y":571.6,"a":-165.0,"guns":["s2"]}],"turrets":[{"x":1210.0,"y":378.0,"rot":-0.5,"gx":1213.1,"gy":369.5,"a":-253.5,"gun":"x1"},{"x":778.0,"y":754.0,"rot":-14.5,"gx":787.0,"gy":755.8,"a":-181.0,"gun":"x1"}],"intro":[["shotLarge",296.0,289.0,-12.5],["shotLarge",330.0,279.0,-14.0],["shotThin",920.0,208.0,105.0],["shotRed",417.0,816.0,-120.0],["explosionSmoke2",647.0,142.0,0.0],["explosionSmoke3",439.0,563.0,180.0],["explosionSmoke4",334.0,649.0,0.0],["explosion3",1406.0,97.0,-0.5]],"bounds":[-536,-526,2884,2116],"frame":[0,0,1836,1030]},"defense":{"tiles":[["Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand2@180","Sand2@180","Sand2@180","Sand2@180","Grass_transitionW","Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180"],["Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE","Sand_roadEast","Sand_roadEast","Sand_roadSplitS","Sand_roadEast","Grass_roadTransitionW","Grass_roadEast","Grass_roadEast","Grass_roadSplitW","Grass1"],["Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand1","Sand_roadNorth","Sand1","Grass_transitionW","Grass1","Grass1","Grass_roadNorth","Grass1"],["Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand2@180","Sand2@180","Sand_roadNorth","Sand2@180","Grass_transitionW","Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180"],["Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE_dirt","Sand_roadEast","Sand_roadEast","Sand_roadCrossingRound","Sand_roadEast","Grass_roadTransitionW_dirt","Grass_roadEast","Grass_roadEast","Grass_roadCrossing","Grass_roadEast"],["Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand1","Sand_roadNorth","Sand1","Grass_transitionW","Grass1","Grass1","Grass_roadNorth","Grass1"],["Grass2@180","Grass_roadNorth","Grass2@180","Grass2@180","Grass2@180","Grass_transitionE","Sand2@180","Sand2@180","Sand_roadNorth","Sand2@180","Grass_transitionW","Grass2@180","Grass2@180","Grass_roadNorth","Grass2@180"],["Grass1","Grass_roadSplitE","Grass_roadEast","Grass_roadEast","Grass_roadEast","Grass_roadTransitionE","Sand_roadEast","Sand_roadEast","Sand_roadSplitN","Sand_roadEast","Grass_roadTransitionW","Grass_roadEast","Grass_roadEast","Grass_roadSplitW","Grass1"],["Grass1","Grass_roadNorth","Grass1","Grass1","Grass1","Grass_transitionE","Sand1","Sand1","Sand1","Sand1","Grass_transitionW","Grass1","Grass1","Grass_roadNorth","Grass1"]],"origin":[-42,-61],"props":[["crateWood",300,300,8],["crateWood",354,316,-12],["crateWood",322,356,25],["barrelRust_top",70,330,0],["barrelRust_side",104,372,70],["oilSpill_small",128,392,0],["barrelGreen_side",430,770,-30],["sandbagBrown_open",300,705,0],["sandbagBeige_open",246,690,20],["crateMetal_side",380,640,10],["treeGreen_large",30,640,0],["treeGreen_small",56,970,0],["treeGreen_twigs",300,990,40],["fenceYellow",236,214,90],["wireStraight",440,420,70],["treeGreen_small",400,220,0],["barricadeMetal",850,320,0],["barricadeMetal",1120,705,15],["barricadeMetal",905,775,-10],["barricadeWood",1140,300,20],["barricadeWood",800,640,-15],["crateMetal",960,646,45],["crateMetal",1004,676,30],["crateMetal",994,608,10],["crateWood_side",780,236,15],["barrelBlack_top",1150,420,0],["oilSpill_large",1172,474,0],["barrelBlack_side",1182,456,120],["barrelRed_top",830,992,0],["treeBrown_large",1120,1000,0],["treeBrown_small",790,410,0],["treeBrown_twigs",960,250,30],["wireCrooked",1080,330,30],["fenceRed",1210,600,85],["fenceRed",870,452,5],["oilSpill_large",1046,515,0],["treeBrown_leaf",975,262,10],["treeGreen_large",1480,300,0],["treeGreen_large",1790,700,0],["treeGreen_small",1560,760,0],["treeGreen_small",1450,990,0],["treeGreen_twigs",1760,300,-20],["crateWood",1800,1000,15],["barrelGreen_top",1600,330,0],["barricadeWood",1420,640,10],["treeGreen_leaf",1770,312,40]],"lineX":534,"bounds":[0,0,1836,1030],"frame":[0,0,1836,1030]},"home":{"tiles":[["Sand2@180","Sand_roadCornerLR","Sand_roadEast","Sand_roadEast","Sand_roadSplitW","Sand2@180","Sand2@180","Sand2@180","Sand2@180"],["Grass_transitionN","Grass_roadTransitionN_dirt","Grass_transitionN","Grass_transitionN","Grass_roadTransitionN","Grass_transitionN","Grass_transitionN","Grass_transitionN","Grass_transitionN"],["Grass_roadEast","Grass_roadSplitN","Grass_roadEast","Grass_roadEast","Grass_roadCrossing","Grass_roadEast","Grass_roadEast","Grass_roadCornerLL","Grass1"],["Grass_transitionS","Grass_transitionS","Grass_transitionS","Grass_transitionS","Grass_roadTransitionS","Grass_transitionS","Grass_transitionS","Grass_roadTransitionS_dirt","Grass_transitionS"],["Sand1","Sand1","Sand1","Sand1","Sand_roadSplitE","Sand_roadEast","Sand_roadEast","Sand_roadCornerUL","Sand1"]],"origin":[0,0],"props":[["sandbagBrown",300,212,0],["sandbagBrown",348,216,8],["sandbagBeige_open",846,432,15],["sandbagBrown_open",356,446,-10],["crateWood_side",212,200,20],["crateMetal_side",930,196,-15],["crateMetal",986,240,30],["barrelRust_top",866,208,0],["barrelRust_side",222,452,60],["oilSpill_small",248,470,0],["barrelBlack_side",1004,470,-40],["barrelGreen_side",124,204,100],["wireStraight",716,452,75],["treeBrown_large",110,566,0],["treeBrown_small",1046,72,0],["treeGreen_twigs",430,178,0],["treeGreen_small",760,170,0],["fenceYellow",470,452,0],["fenceRed",690,184,0]],"bounds":[0,0,1152,640],"frame":[0,0,1152,640]}};
 
 // ---------- obstacle catalogue: every map prop sprite and how it behaves ----------
 const PROP = {
@@ -875,42 +874,40 @@ function pushOut(t, o, r) {
 // ---------- world state ----------
 const W = {
   map: null, mode: null, view: { x: 0, y: 0, w: 1836, h: 1030 },
-  tanks: [], bullets: [], props: [], turrets: [], decals: [], effects: [],
+  tanks: [], bullets: [], props: [], turrets: [], decals: [], effects: [], perimeter: [],
   player: null, time: 0, shake: 0, kills: 0, over: false,
   flow: null, flowT: 0,
 };
 
-function buildTileLayer(M) {
-  const rows = M.tiles.length, cols = M.tiles[0].length;
-  const cv = document.createElement('canvas');
-  cv.width = cols * 128;
-  cv.height = rows * 128;
-  const c = cv.getContext('2d');
-  M.tiles.forEach((row, r) =>
-    row.forEach((t, k) => {
-      const [name, rot] = t.split('@');
-      const im = img('tile' + name);
-      if (!rot) c.drawImage(im, k * 128, r * 128);
-      else {
-        c.save();
-        c.translate(k * 128 + 64, r * 128 + 64);
-        c.rotate(deg(+rot));
-        c.drawImage(im, -64, -64);
-        c.restore();
-      }
-    })
-  );
-  return { canvas: cv, x: M.origin[0], y: M.origin[1], w: cv.width, h: cv.height };
-}
-
 function loadMap(key) {
   const M = MAPS[key];
-  W.map = { key, tiles: buildTileLayer(M), lineX: M.lineX };
+  const [bx, by, bw, bh] = M.bounds;
+  W.map = { key, tiles: M.tiles, ox: M.origin[0], oy: M.origin[1], lineX: M.lineX, frame: M.frame };
+  W.view = { x: bx, y: by, w: bw, h: bh };
   W.props = M.props.map(([n, x, y, r]) => makeProp(n, x, y, r));
   W.decals = [];
   W.turrets = [];
+  W.perimeter = [];
   // ground oil spills behave as decals with slippery zones
   for (const p of W.props) if (p.kind === 'oil') p.slick = true;
+}
+
+// a ring of steel hedgehogs marks where the (larger) battlefield ends
+function buildPerimeter() {
+  const v = W.view, out = [], step = 92;
+  const edge = (x0, y0, x1, y1) => {
+    const len = hypot(x1 - x0, y1 - y0), n = Math.round(len / step);
+    for (let i = 0; i < n; i++) {
+      const f = i / n;
+      out.push({ sprite: 'barricadeMetal', x: x0 + (x1 - x0) * f, y: y0 + (y1 - y0) * f, rot: deg((i * 37) % 30 - 15) });
+    }
+  };
+  const x0 = v.x + 14, y0 = v.y + 14, x1 = v.x + v.w - 14, y1 = v.y + v.h - 14;
+  edge(x0, y0, x1, y0);
+  edge(x1, y0, x1, y1);
+  edge(x1, y1, x0, y1);
+  edge(x0, y1, x0, y0);
+  W.perimeter = out;
 }
 
 // ---------- tanks ----------
@@ -1306,8 +1303,9 @@ function driveTank(t, dt) {
   for (const tu of W.turrets) if (tu.alive) pushOut(t, { shape: 'circle', x: tu.gx, y: tu.gy, r: 18 }, t.r);
   const v = W.view;
   if (!t.entering) {
-    t.x = clamp(t.x, v.x + t.r * 0.8, v.x + v.w - t.r * 0.8);
-    t.y = clamp(t.y, v.y + t.r * 0.8, v.y + v.h - t.r * 0.8);
+    const m = W.perimeter.length ? t.r + 34 : t.r * 0.8; // stop in front of the hedgehog ring
+    t.x = clamp(t.x, v.x + m, v.x + v.w - m);
+    t.y = clamp(t.y, v.y + m, v.y + v.h - m);
   } else if (t.x < v.x + v.w - 12 && t.x > v.x + 12 && t.y > v.y + 12 && t.y < v.y + v.h - 12) t.entering = false;
   const moved = hypot(t.x - ox, t.y - oy);
   t.speed = moved / Math.max(dt, 1e-4);
@@ -1571,9 +1569,11 @@ function updateTurrets(dt) {
 }
 
 // ---------- canvas + camera ----------
+// The camera looks at (x, y) and puts that point at (W/2, H*ay) on screen, scaled by s and turned by rot.
+// In battle rot = -90deg - heading, so the player's tank always points to the top of the screen.
 const R = {
   cv: null, ctx: null, dpr: 1, W: 0, H: 0,
-  cam: { x: 918, y: 515, s: 1 },
+  cam: { x: 918, y: 515, s: 1, rot: 0, ay: 0.5 },
   init() {
     this.cv = $('stage');
     this.ctx = this.cv.getContext('2d');
@@ -1587,24 +1587,31 @@ const R = {
     this.cv.width = Math.round(this.W * this.dpr);
     this.cv.height = Math.round(this.H * this.dpr);
   },
-  // fit a world rect inside the window (contain) or over it (cover)
+  // fit a world rect inside the window (contain) or over it (cover), unrotated
   frame(x, y, w, h, cover) {
     const sx = this.W / w, sy = this.H / h;
-    this.cam.s = cover ? Math.max(sx, sy) : Math.min(sx, sy);
-    this.cam.x = x + w / 2;
-    this.cam.y = y + h / 2;
+    Object.assign(this.cam, { s: cover ? Math.max(sx, sy) : Math.min(sx, sy), x: x + w / 2, y: y + h / 2, rot: 0, ay: 0.5 });
   },
   apply(shakeX = 0, shakeY = 0) {
-    const { s, x, y } = this.cam, d = this.dpr;
-    this.ctx.setTransform(d * s, 0, 0, d * s, d * (this.W / 2 - (x + shakeX) * s), d * (this.H / 2 - (y + shakeY) * s));
+    const { s, x, y, rot, ay } = this.cam, d = this.dpr;
+    const k = d * s, c = Math.cos(rot) * k, n = Math.sin(rot) * k;
+    this.ctx.setTransform(c, n, -n, c, d * (this.W / 2 + shakeX) - (c * x - n * y), d * (this.H * ay + shakeY) - (n * x + c * y));
   },
   toWorld(px, py) {
-    const { s, x, y } = this.cam;
-    return [(px - this.W / 2) / s + x, (py - this.H / 2) / s + y];
+    const { s, x, y, rot, ay } = this.cam;
+    const u = (px - this.W / 2) / s, v = (py - this.H * ay) / s, c = Math.cos(rot), n = Math.sin(rot);
+    return [x + c * u + n * v, y - n * u + c * v];
   },
   toScreen(wx, wy) {
-    const { s, x, y } = this.cam;
-    return [(wx - x) * s + this.W / 2, (wy - y) * s + this.H / 2];
+    const { s, x, y, rot, ay } = this.cam;
+    const dx = wx - x, dy = wy - y, c = Math.cos(rot), n = Math.sin(rot);
+    return [this.W / 2 + s * (c * dx - n * dy), this.H * ay + s * (n * dx + c * dy)];
+  },
+  // world-space bounding box of what is on screen (plus a margin)
+  viewBox(m = 0) {
+    const pts = [this.toWorld(0, 0), this.toWorld(this.W, 0), this.toWorld(0, this.H), this.toWorld(this.W, this.H)];
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    return { x0: Math.min(...xs) - m, y0: Math.min(...ys) - m, x1: Math.max(...xs) + m, y1: Math.max(...ys) + m };
   },
   clear() {
     const c = this.ctx;
@@ -1694,21 +1701,52 @@ function drawBar(ctx, x, y, w, h, frac, fill) {
   if (frac > 0) drawPill(ctx, fill, x, y, Math.max(h, w * frac), h);
 }
 
+// tiles are drawn one by one (only the ones on screen) so the map can be any size and the view can turn;
+// past the map edge the outermost row/column repeats, so turning near the border never shows a hole
+const TILE_CACHE = {};
+function tileImg(name) {
+  if (TILE_CACHE[name]) return TILE_CACHE[name];
+  const [n, rot] = name.split('@');
+  const im = img('tile' + n);
+  if (!rot) return (TILE_CACHE[name] = im);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const c = cv.getContext('2d');
+  c.translate(64, 64);
+  c.rotate(deg(+rot));
+  c.drawImage(im, -64, -64);
+  return (TILE_CACHE[name] = cv);
+}
+function drawTiles(ctx, map, box) {
+  const { tiles, ox, oy } = map;
+  const rows = tiles.length, cols = tiles[0].length;
+  const c0 = Math.floor((box.x0 - ox) / 128), c1 = Math.floor((box.x1 - ox) / 128);
+  const r0 = Math.floor((box.y0 - oy) / 128), r1 = Math.floor((box.y1 - oy) / 128);
+  for (let r = r0; r <= r1; r++) {
+    const row = tiles[clamp(r, 0, rows - 1)];
+    for (let c = c0; c <= c1; c++) ctx.drawImage(tileImg(row[clamp(c, 0, cols - 1)]), ox + c * 128 - 1, oy + r * 128 - 1, 130, 130);
+  }
+}
+const inBox = (b, x, y, m = 90) => x > b.x0 - m && x < b.x1 + m && y > b.y0 - m && y < b.y1 + m;
+
 function drawWorld(ctx) {
-  const L = W.map.tiles;
-  ctx.drawImage(L.canvas, L.x, L.y);
+  const box = R.viewBox(8);
+  drawTiles(ctx, W.map, box);
   for (const d of W.decals) {
+    if (!inBox(box, d.x, d.y)) continue;
     const fade = Math.min(1, (d.life - d.t) / 1.5);
     drawSprite(ctx, d.sprite, d.x, d.y, d.rot, 1, d.alpha * fade);
   }
-  for (const o of W.props) if (o.alive && o.layer === 'ground') drawProp(ctx, o);
-  for (const o of W.props) if (o.alive && o.layer === 'low') drawProp(ctx, o);
+  for (const o of W.props) if (o.alive && o.layer === 'ground' && inBox(box, o.x, o.y)) drawProp(ctx, o);
+  for (const o of W.props) if (o.alive && o.layer === 'low' && inBox(box, o.x, o.y)) drawProp(ctx, o);
+  for (const o of W.perimeter || []) if (inBox(box, o.x, o.y)) drawSprite(ctx, o.sprite, o.x, o.y, o.rot);
   for (const tu of W.turrets) if (tu.alive) drawTurretGun(ctx, tu);
-  for (const t of W.tanks) if (t.alive && t !== W.player) drawTank(ctx, t);
+  for (const t of W.tanks) if (t.alive && t !== W.player && inBox(box, t.x, t.y, 160)) drawTank(ctx, t);
   if (W.player && W.player.alive) drawTank(ctx, W.player);
-  for (const b of W.bullets) drawSprite(ctx, b.sprite, b.x, b.y, b.a - Math.PI / 2);
-  for (const o of W.props) if (o.alive && o.layer === 'high') drawProp(ctx, o);
+  for (const b of W.bullets) if (inBox(box, b.x, b.y)) drawSprite(ctx, b.sprite, b.x, b.y, b.a - Math.PI / 2);
+  for (const o of W.props) if (o.alive && o.layer === 'high' && inBox(box, o.x, o.y)) drawProp(ctx, o);
   for (const e of W.effects) {
+    if (!inBox(box, e.x, e.y, 140)) continue;
     if (e.kind === 'anim') {
       if (e.t < 0) continue;
       const f = Math.min(5, Math.floor(e.t / e.fd) + 1);
@@ -1716,21 +1754,36 @@ function drawWorld(ctx) {
     } else if (e.kind === 'flash') drawSprite(ctx, e.sprite, e.x, e.y, e.rot, 1, 1 - e.t / e.life);
     else if (e.kind === 'leaf') drawSprite(ctx, e.sprite, e.x, e.y, e.rot, 1, 1 - e.t / e.life);
   }
+}
+
+// health bars stay level on screen whichever way the world is turned
+function drawOverlays(ctx) {
   if (!Settings.bars) return;
+  ctx.setTransform(R.dpr, 0, 0, R.dpr, 0, 0);
+  const s = R.cam.s;
+  const above = (x, y, lift) => {
+    const [sx, sy] = R.toScreen(x, y);
+    return [sx, sy - lift];
+  };
   for (const t of W.tanks) {
     if (!t.alive) continue;
     const fr = t.hp / t.maxHp;
-    if (t === W.player) {
-      drawBar(ctx, t.x - 34, t.y - t.r - 26, 68, 12, fr, t.regen ? 'progress_green_small_border' : 'progress_green_small');
-    } else if (fr < 1 || t.hitT < 2) {
-      drawBar(ctx, t.x - 32, t.y - t.r - 24, 64, 12, fr, t.isLarge ? 'progress_red_small_border' : 'progress_red_small');
-    }
+    const [x, y] = above(t.x, t.y, t.r * s + 18);
+    if (x < -60 || y < -40 || x > R.W + 60 || y > R.H + 40) continue;
+    if (t === W.player) drawBar(ctx, x - 30, y - 5, 60, 10, fr, t.regen ? 'progress_green_small_border' : 'progress_green_small');
+    else if (fr < 1 || t.hitT < 2) drawBar(ctx, x - 27, y - 5, 54, 10, fr, t.isLarge ? 'progress_red_small_border' : 'progress_red_small');
   }
-  for (const tu of W.turrets) if (tu.alive && tu.hp < tu.maxHp) drawBar(ctx, tu.gx - 28, tu.gy - 46, 56, 10, tu.hp / tu.maxHp, 'progress_white_small');
+  for (const tu of W.turrets) {
+    if (!tu.alive || tu.hp >= tu.maxHp) continue;
+    const [x, y] = above(tu.gx, tu.gy, 30 * s + 16);
+    drawBar(ctx, x - 24, y - 4, 48, 8, tu.hp / tu.maxHp, 'progress_white_small');
+  }
   for (const o of W.props) {
     if (!o.alive || o.hurtT == null || o.hp === Infinity || o.hp >= o.maxHp) continue;
     o.hurtT += 1 / 60;
-    if (o.hurtT < 1.6) drawBar(ctx, o.x - 22, o.y - 40, 44, 9, Math.max(0, o.hp / o.maxHp), 'progress_white_small_border');
+    if (o.hurtT >= 1.6) continue;
+    const [x, y] = above(o.x, o.y, 30 * s + 12);
+    drawBar(ctx, x - 19, y - 4, 38, 8, Math.max(0, o.hp / o.maxHp), 'progress_white_small_border');
   }
 }
 
@@ -1750,21 +1803,24 @@ const Radar = {
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, S, S);
     const p = W.player;
-    const cx = p ? p.x : W.view.w / 2, cy = p ? p.y : W.view.h / 2;
-    const range = 1000, k = inner / range;
+    const cx = p ? p.x : W.view.x + W.view.w / 2, cy = p ? p.y : W.view.y + W.view.h / 2;
+    const range = 1200, k = inner / range;
+    // the radar turns with the camera: straight up is where the tank is heading
+    const rot = R.cam.rot, rc = Math.cos(rot), rs = Math.sin(rot);
     c.save();
     c.beginPath();
     c.arc(C, C, inner, 0, TAU);
     c.fillStyle = W.mode.key === 'defense' ? 'rgba(24,32,40,.62)' : 'rgba(34,40,22,.6)';
     c.fill();
     c.clip();
-    const icon = (name, x, y, sc = 0.62, rot = 0) => {
-      const dx = (x - cx) * k, dy = (y - cy) * k;
+    const icon = (name, x, y, sc = 0.62, spin = 0) => {
+      const wx = (x - cx) * k, wy = (y - cy) * k;
+      const dx = rc * wx - rs * wy, dy = rs * wx + rc * wy;
       if (dx * dx + dy * dy > inner * inner) return;
       const im = uimg(name);
       c.save();
       c.translate(C + dx, C + dy);
-      if (rot) c.rotate(rot);
+      if (spin) c.rotate(spin);
       c.drawImage(im, (-im.width * sc) / 2, (-im.height * sc) / 2, im.width * sc, im.height * sc);
       c.restore();
     };
@@ -1786,20 +1842,26 @@ const Radar = {
       if (W.mode.key === 'defense' && t.x - W.map.lineX < 280) icon('minimap_icon_exclamation_yellow', t.x, t.y, 0.75);
       else icon(t.isLarge ? 'minimap_icon_star_red' : 'minimap_icon_jewel_red', t.x, t.y, t.isLarge ? 0.62 : 0.5);
     }
-    if (p && p.alive) icon('minimap_arrow_a', p.x, p.y, 0.75, p.a + Math.PI / 2);
+    if (p && p.alive) icon('minimap_arrow_a', p.x, p.y, 0.75, p.a + Math.PI / 2 + rot);
     c.restore();
     const ring = W.mode.key === 'defense' ? 'minimap_ring_grey_detail' : W.mode.key === 'fun' ? 'minimap_ring_brown' : 'minimap_ring_brown_detail';
-    c.drawImage(uimg(ring), 0, 0, S, S);
+    c.save();
+    c.translate(C, C);
+    c.rotate(rot);
+    c.drawImage(uimg(ring), -C, -C, S, S);
+    c.restore();
     const set = W.mode.key === 'defense' ? COMPASS.future : COMPASS.toon;
-    const letter = (d, x, y) => {
+    // compass letters ride around the ring so N always points at true north
+    const letter = (d, wx, wy) => {
       const im = uimg(set[d]);
-      const sc = 0.62;
+      const sc = 0.62, rr = C - 15;
+      const x = C + (rc * wx - rs * wy) * rr, y = C + (rs * wx + rc * wy) * rr;
       c.drawImage(im, x - (im.width * sc) / 2, y - (im.height * sc) / 2, im.width * sc, im.height * sc);
     };
-    letter('n', C, 16);
-    letter('s', C, S - 16);
-    letter('e', S - 15, C);
-    letter('w', 15, C);
+    letter('n', 0, -1);
+    letter('s', 0, 1);
+    letter('e', 1, 0);
+    letter('w', -1, 0);
   },
 };
 
@@ -1895,7 +1957,7 @@ const CARDS = [
   {
     key: 'battle', panel: 'pz-brown-corners-b', medal: 'medal-2', icon: 'explosion3', title: '普通战场',
     desc: '和示例图一模一样的战场。每辆敌方坦克和固定炮台开火后要冷却 3 秒才能再打。',
-    rules: [['off', '敌方攻击冷却 3 秒'], ['off', '固定炮台也会开火'], ['on', '脱战 3 秒后自动回复耐久'], ['na', '红黑炮管只能装在大型坦克上']],
+    rules: [['off', '敌方攻击冷却 3 秒'], ['off', '固定炮台也会开火'], ['on', '脱战 3 秒后每秒回复 10 耐久'], ['na', '红黑炮管只能装在大型坦克上']],
     best: (v) => `最高击毁 ${v}`,
   },
   {
@@ -2037,7 +2099,7 @@ const Garage = {
       <li><i class="chk chk-brown-na"></i><span>红黑炮管只能装在大型坦克（红魔重坦、钢铁堡垒、巨像）上，大型坦克可同时装 ${HULLS.huge.mounts.length} 门以内的炮。超爽模式不限制。</span></li></ul>`;
     const s = loadoutStats(this.lo);
     const rows = [
-      ['耐久', s.hp / 360, s.hp, 'fill-green-b'],
+      ['耐久', s.hp / 720, s.hp, 'fill-green-b'],
       ['机动', s.speed / 210, s.speed, 'fill-blue-b'],
       ['火力', Math.min(1, s.dps / 220), Math.round(s.dps), 'fill-red-b'],
       ['射速', Math.min(1, s.rate / 14), s.rate.toFixed(1) + '/秒', 'fill-white-b'],
@@ -2353,8 +2415,7 @@ const Home = {
     const ctx = R.ctx;
     R.frame(0, 0, 1152, 640, true);
     R.apply();
-    const L = W.map.tiles;
-    ctx.drawImage(L.canvas, L.x, L.y);
+    drawTiles(ctx, W.map, R.viewBox(8));
     for (const o of W.props) if (o.layer === 'ground') drawProp(ctx, o);
     for (const o of W.props) if (o.layer === 'low') drawProp(ctx, o);
     const t = this.tank;
@@ -2398,7 +2459,6 @@ const Home = {
 function setupShowcase() {
   loadMap('main');
   W.mode = { key: 'showcase', enemyDmg: 0.5 };
-  W.view = { x: 0, y: 0, w: SAMPLE_VIEW.w, h: SAMPLE_VIEW.h };
   W.tanks = MAPS.main.tanks.map((d) => makeTank({ team: 'enemy', hull: d.hull, guns: d.guns, x: d.x, y: d.y, a: d.a }));
   W.player = null;
   W.turrets = MAPS.main.turrets.map(makeTurret);
@@ -2418,6 +2478,41 @@ function introEffects(frozen) {
     for (const k of [58, 110, 162]) addDecal(t.H.tracks, t.x - Math.cos(t.a) * k, t.y - Math.sin(t.a) * k, t.a - Math.PI / 2, frozen ? 1e9 : 7, 0.5);
   }
 }
+
+// ---------- battle camera ----------
+const Cam = {
+  t: 0, last: null,
+  start() {
+    this.t = 0;
+    this.last = null;
+  },
+  overview() {
+    const [x, y, w, h] = W.map.frame;
+    return { x: x + w / 2, y: y + h / 2, s: Math.min(R.W / w, R.H / h), rot: 0, ay: 0.5 };
+  },
+  chase() {
+    const p = W.player;
+    if (!p || !p.alive) return this.last || this.overview();
+    const def = W.mode.key === 'defense';
+    // zoomed in so the tank reads clearly (about 1.5x the old view); the tank sits low to keep room ahead
+    const viewH = def ? 933 : 667;
+    const s = clamp(Math.min(R.W / 427, R.H / viewH), def ? 0.4 : 0.45, def ? 1.6 : 1.8);
+    const portrait = R.H > R.W;
+    const ay = portrait ? (def ? 0.66 : 0.6) : def ? 0.8 : 0.7;
+    return (this.last = { x: p.x, y: p.y, s, rot: -Math.PI / 2 - p.a, ay });
+  },
+  update(dt) {
+    const a = this.overview(), b = this.chase();
+    if (Game.hold > 0) return Object.assign(R.cam, a);
+    this.t += dt;
+    const k = this.t >= 0.9 ? 1 : (1 - Math.cos((Math.PI * this.t) / 0.9)) / 2;
+    if (k >= 1) return Object.assign(R.cam, b);
+    Object.assign(R.cam, {
+      x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), s: lerp(a.s, b.s, k),
+      rot: a.rot + angDiff(a.rot, b.rot) * k, ay: lerp(a.ay, b.ay, k),
+    });
+  },
+};
 
 // ---------- game ----------
 const Game = {
@@ -2442,8 +2537,8 @@ const Game = {
       godMode: key === 'fun',
     });
     loadMap(M.map);
-    W.view = { x: 0, y: 0, w: SAMPLE_VIEW.w, h: SAMPLE_VIEW.h };
-    Flow.setup(0, 0, W.view.w, W.view.h);
+    if (M.map === 'main') buildPerimeter();
+    Flow.setup(W.view.x, W.view.y, W.view.w, W.view.h);
     const lo = Loadout;
     if (M.map === 'main') {
       const hpMul = key === 'fun' ? 0.5 : 0.6;
@@ -2464,8 +2559,9 @@ const Game = {
       W.tanks.push(W.player);
       W.wave = { n: 0, toSpawn: 0, spawnT: 0, breakT: 2.2, total: 0, killed: 0, lastSpawn: -1 };
       Flow.compute(defenseTargets());
-      this.hold = 0;
+      this.hold = 0.8;
     }
+    Cam.start();
     App.go('play');
     HUD.setup(key);
     HUD.toast(key === 'defense' ? '守住沙袋防线' : key === 'fun' ? '超爽模式 · 尽情开炮' : '开战！', 1.6);
@@ -2546,10 +2642,9 @@ const Game = {
     if (Input.down('KeyD', 'ArrowRight')) st += 1;
     const tm = Input.touchMove;
     if (tm.active && hypot(tm.x, tm.y) > 0.15) {
-      const want = Math.atan2(tm.y, tm.x), mag = Math.min(1, hypot(tm.x, tm.y));
-      const d = angDiff(p.a, want);
-      st = clamp(d * 2.4, -1, 1);
-      thr = Math.abs(d) < 1.2 ? mag : Math.abs(d) < 2 ? mag * 0.3 : 0;
+      // the camera keeps the tank pointing up, so the stick works like the keys: up = forward, sideways = turn
+      thr = Math.abs(tm.y) > 0.2 ? clamp(-tm.y * 1.25, -1, 1) : 0;
+      st = Math.abs(tm.x) > 0.2 ? clamp(tm.x * 1.25, -1, 1) : 0;
     }
     p.throttle = thr;
     p.steer = st;
@@ -2570,7 +2665,7 @@ const Game = {
     // battle: regain armour after 3 s out of fire
     p.regen = false;
     if (this.modeKey === 'battle' && p.hitT > 3 && p.hp < p.maxHp) {
-      p.hp = Math.min(p.maxHp, p.hp + 12 * dt);
+      p.hp = Math.min(p.maxHp, p.hp + 10 * dt);
       p.regen = true;
     }
   },
@@ -2663,8 +2758,9 @@ function randomEnemyLoadout(large) {
 }
 
 function waveConfig(n) {
+  // tank armour doubled across the game, so waves arrive slower and further apart to keep the same difficulty curve
   const count = 3 + n * 2;
-  return { count, interval: Math.max(0.9, 3 - n * 0.2), hpMul: 0.28 + n * 0.036, speedMul: 0.36 + n * 0.028, largeChance: n >= 7 ? 0.3 : n >= 5 ? 0.22 : n >= 3 ? 0.14 : 0 };
+  return { count, interval: Math.max(1.5, 4.4 - n * 0.29), hpMul: 0.28 + n * 0.036, speedMul: 0.26 + n * 0.02, largeChance: n >= 7 ? 0.3 : n >= 5 ? 0.22 : n >= 3 ? 0.14 : 0 };
 }
 const DEF_SPAWNS = [
   [1900, 131, 180], [1900, 515, 180], [1900, 899, 180], [1686, -90, 90], [1686, 1120, -90],
@@ -2815,22 +2911,17 @@ function frame(now) {
     R.cv.style.cursor = part ? 'pointer' : 'default';
     Home.draw(dt);
   } else if (App.screen === 'modes') {
-    R.frame(0, 0, SAMPLE_VIEW.w, SAMPLE_VIEW.h, false);
+    const [fx, fy, fw, fh] = W.map.frame;
+    R.frame(fx, fy, fw, fh, false);
     R.apply();
     drawWorld(ctx);
   } else if (App.screen === 'play') {
     if (!Game.paused) Game.update(dt);
-    R.frame(0, 0, W.view.w, W.view.h, false);
-    if (R.cam.s < 0.45 && W.player) {
-      // portrait phone: fill the height (or 900 world px) and slide along with the player
-      R.cam.s = Math.min(R.W / 900, R.H / W.view.h) > R.cam.s ? Math.min(R.W / 900, R.H / W.view.h) : R.cam.s;
-      const hw = R.W / 2 / R.cam.s, hh = R.H / 2 / R.cam.s;
-      R.cam.x = hw * 2 >= W.view.w ? W.view.w / 2 : clamp(W.player.x, hw, W.view.w - hw);
-      R.cam.y = hh * 2 >= W.view.h ? W.view.h / 2 : clamp(W.player.y, hh, W.view.h - hh);
-    }
+    Cam.update(Game.paused ? 0 : dt);
     const sh = W.shake;
     R.apply(sh ? rand(-sh, sh) * 0.5 : 0, sh ? rand(-sh, sh) * 0.5 : 0);
     drawWorld(ctx);
+    drawOverlays(ctx);
     if (Settings.radar) Radar.draw();
     HUD.update();
   }

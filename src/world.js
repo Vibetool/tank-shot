@@ -95,42 +95,40 @@ function pushOut(t, o, r) {
 // ---------- world state ----------
 const W = {
   map: null, mode: null, view: { x: 0, y: 0, w: 1836, h: 1030 },
-  tanks: [], bullets: [], props: [], turrets: [], decals: [], effects: [],
+  tanks: [], bullets: [], props: [], turrets: [], decals: [], effects: [], perimeter: [],
   player: null, time: 0, shake: 0, kills: 0, over: false,
   flow: null, flowT: 0,
 };
 
-function buildTileLayer(M) {
-  const rows = M.tiles.length, cols = M.tiles[0].length;
-  const cv = document.createElement('canvas');
-  cv.width = cols * 128;
-  cv.height = rows * 128;
-  const c = cv.getContext('2d');
-  M.tiles.forEach((row, r) =>
-    row.forEach((t, k) => {
-      const [name, rot] = t.split('@');
-      const im = img('tile' + name);
-      if (!rot) c.drawImage(im, k * 128, r * 128);
-      else {
-        c.save();
-        c.translate(k * 128 + 64, r * 128 + 64);
-        c.rotate(deg(+rot));
-        c.drawImage(im, -64, -64);
-        c.restore();
-      }
-    })
-  );
-  return { canvas: cv, x: M.origin[0], y: M.origin[1], w: cv.width, h: cv.height };
-}
-
 function loadMap(key) {
   const M = MAPS[key];
-  W.map = { key, tiles: buildTileLayer(M), lineX: M.lineX };
+  const [bx, by, bw, bh] = M.bounds;
+  W.map = { key, tiles: M.tiles, ox: M.origin[0], oy: M.origin[1], lineX: M.lineX, frame: M.frame };
+  W.view = { x: bx, y: by, w: bw, h: bh };
   W.props = M.props.map(([n, x, y, r]) => makeProp(n, x, y, r));
   W.decals = [];
   W.turrets = [];
+  W.perimeter = [];
   // ground oil spills behave as decals with slippery zones
   for (const p of W.props) if (p.kind === 'oil') p.slick = true;
+}
+
+// a ring of steel hedgehogs marks where the (larger) battlefield ends
+function buildPerimeter() {
+  const v = W.view, out = [], step = 92;
+  const edge = (x0, y0, x1, y1) => {
+    const len = hypot(x1 - x0, y1 - y0), n = Math.round(len / step);
+    for (let i = 0; i < n; i++) {
+      const f = i / n;
+      out.push({ sprite: 'barricadeMetal', x: x0 + (x1 - x0) * f, y: y0 + (y1 - y0) * f, rot: deg((i * 37) % 30 - 15) });
+    }
+  };
+  const x0 = v.x + 14, y0 = v.y + 14, x1 = v.x + v.w - 14, y1 = v.y + v.h - 14;
+  edge(x0, y0, x1, y0);
+  edge(x1, y0, x1, y1);
+  edge(x1, y1, x0, y1);
+  edge(x0, y1, x0, y0);
+  W.perimeter = out;
 }
 
 // ---------- tanks ----------
@@ -526,8 +524,9 @@ function driveTank(t, dt) {
   for (const tu of W.turrets) if (tu.alive) pushOut(t, { shape: 'circle', x: tu.gx, y: tu.gy, r: 18 }, t.r);
   const v = W.view;
   if (!t.entering) {
-    t.x = clamp(t.x, v.x + t.r * 0.8, v.x + v.w - t.r * 0.8);
-    t.y = clamp(t.y, v.y + t.r * 0.8, v.y + v.h - t.r * 0.8);
+    const m = W.perimeter.length ? t.r + 34 : t.r * 0.8; // stop in front of the hedgehog ring
+    t.x = clamp(t.x, v.x + m, v.x + v.w - m);
+    t.y = clamp(t.y, v.y + m, v.y + v.h - m);
   } else if (t.x < v.x + v.w - 12 && t.x > v.x + 12 && t.y > v.y + 12 && t.y < v.y + v.h - 12) t.entering = false;
   const moved = hypot(t.x - ox, t.y - oy);
   t.speed = moved / Math.max(dt, 1e-4);

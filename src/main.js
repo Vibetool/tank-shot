@@ -37,8 +37,7 @@ const Home = {
     const ctx = R.ctx;
     R.frame(0, 0, 1152, 640, true);
     R.apply();
-    const L = W.map.tiles;
-    ctx.drawImage(L.canvas, L.x, L.y);
+    drawTiles(ctx, W.map, R.viewBox(8));
     for (const o of W.props) if (o.layer === 'ground') drawProp(ctx, o);
     for (const o of W.props) if (o.layer === 'low') drawProp(ctx, o);
     const t = this.tank;
@@ -82,7 +81,6 @@ const Home = {
 function setupShowcase() {
   loadMap('main');
   W.mode = { key: 'showcase', enemyDmg: 0.5 };
-  W.view = { x: 0, y: 0, w: SAMPLE_VIEW.w, h: SAMPLE_VIEW.h };
   W.tanks = MAPS.main.tanks.map((d) => makeTank({ team: 'enemy', hull: d.hull, guns: d.guns, x: d.x, y: d.y, a: d.a }));
   W.player = null;
   W.turrets = MAPS.main.turrets.map(makeTurret);
@@ -102,6 +100,41 @@ function introEffects(frozen) {
     for (const k of [58, 110, 162]) addDecal(t.H.tracks, t.x - Math.cos(t.a) * k, t.y - Math.sin(t.a) * k, t.a - Math.PI / 2, frozen ? 1e9 : 7, 0.5);
   }
 }
+
+// ---------- battle camera ----------
+const Cam = {
+  t: 0, last: null,
+  start() {
+    this.t = 0;
+    this.last = null;
+  },
+  overview() {
+    const [x, y, w, h] = W.map.frame;
+    return { x: x + w / 2, y: y + h / 2, s: Math.min(R.W / w, R.H / h), rot: 0, ay: 0.5 };
+  },
+  chase() {
+    const p = W.player;
+    if (!p || !p.alive) return this.last || this.overview();
+    const def = W.mode.key === 'defense';
+    // zoomed in so the tank reads clearly (about 1.5x the old view); the tank sits low to keep room ahead
+    const viewH = def ? 933 : 667;
+    const s = clamp(Math.min(R.W / 427, R.H / viewH), def ? 0.4 : 0.45, def ? 1.6 : 1.8);
+    const portrait = R.H > R.W;
+    const ay = portrait ? (def ? 0.66 : 0.6) : def ? 0.8 : 0.7;
+    return (this.last = { x: p.x, y: p.y, s, rot: -Math.PI / 2 - p.a, ay });
+  },
+  update(dt) {
+    const a = this.overview(), b = this.chase();
+    if (Game.hold > 0) return Object.assign(R.cam, a);
+    this.t += dt;
+    const k = this.t >= 0.9 ? 1 : (1 - Math.cos((Math.PI * this.t) / 0.9)) / 2;
+    if (k >= 1) return Object.assign(R.cam, b);
+    Object.assign(R.cam, {
+      x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), s: lerp(a.s, b.s, k),
+      rot: a.rot + angDiff(a.rot, b.rot) * k, ay: lerp(a.ay, b.ay, k),
+    });
+  },
+};
 
 // ---------- game ----------
 const Game = {
@@ -126,8 +159,8 @@ const Game = {
       godMode: key === 'fun',
     });
     loadMap(M.map);
-    W.view = { x: 0, y: 0, w: SAMPLE_VIEW.w, h: SAMPLE_VIEW.h };
-    Flow.setup(0, 0, W.view.w, W.view.h);
+    if (M.map === 'main') buildPerimeter();
+    Flow.setup(W.view.x, W.view.y, W.view.w, W.view.h);
     const lo = Loadout;
     if (M.map === 'main') {
       const hpMul = key === 'fun' ? 0.5 : 0.6;
@@ -148,8 +181,9 @@ const Game = {
       W.tanks.push(W.player);
       W.wave = { n: 0, toSpawn: 0, spawnT: 0, breakT: 2.2, total: 0, killed: 0, lastSpawn: -1 };
       Flow.compute(defenseTargets());
-      this.hold = 0;
+      this.hold = 0.8;
     }
+    Cam.start();
     App.go('play');
     HUD.setup(key);
     HUD.toast(key === 'defense' ? '守住沙袋防线' : key === 'fun' ? '超爽模式 · 尽情开炮' : '开战！', 1.6);
@@ -230,10 +264,9 @@ const Game = {
     if (Input.down('KeyD', 'ArrowRight')) st += 1;
     const tm = Input.touchMove;
     if (tm.active && hypot(tm.x, tm.y) > 0.15) {
-      const want = Math.atan2(tm.y, tm.x), mag = Math.min(1, hypot(tm.x, tm.y));
-      const d = angDiff(p.a, want);
-      st = clamp(d * 2.4, -1, 1);
-      thr = Math.abs(d) < 1.2 ? mag : Math.abs(d) < 2 ? mag * 0.3 : 0;
+      // the camera keeps the tank pointing up, so the stick works like the keys: up = forward, sideways = turn
+      thr = Math.abs(tm.y) > 0.2 ? clamp(-tm.y * 1.25, -1, 1) : 0;
+      st = Math.abs(tm.x) > 0.2 ? clamp(tm.x * 1.25, -1, 1) : 0;
     }
     p.throttle = thr;
     p.steer = st;
@@ -254,7 +287,7 @@ const Game = {
     // battle: regain armour after 3 s out of fire
     p.regen = false;
     if (this.modeKey === 'battle' && p.hitT > 3 && p.hp < p.maxHp) {
-      p.hp = Math.min(p.maxHp, p.hp + 12 * dt);
+      p.hp = Math.min(p.maxHp, p.hp + 10 * dt);
       p.regen = true;
     }
   },
@@ -347,8 +380,9 @@ function randomEnemyLoadout(large) {
 }
 
 function waveConfig(n) {
+  // tank armour doubled across the game, so waves arrive slower and further apart to keep the same difficulty curve
   const count = 3 + n * 2;
-  return { count, interval: Math.max(0.9, 3 - n * 0.2), hpMul: 0.28 + n * 0.036, speedMul: 0.36 + n * 0.028, largeChance: n >= 7 ? 0.3 : n >= 5 ? 0.22 : n >= 3 ? 0.14 : 0 };
+  return { count, interval: Math.max(1.5, 4.4 - n * 0.29), hpMul: 0.28 + n * 0.036, speedMul: 0.26 + n * 0.02, largeChance: n >= 7 ? 0.3 : n >= 5 ? 0.22 : n >= 3 ? 0.14 : 0 };
 }
 const DEF_SPAWNS = [
   [1900, 131, 180], [1900, 515, 180], [1900, 899, 180], [1686, -90, 90], [1686, 1120, -90],
@@ -499,22 +533,17 @@ function frame(now) {
     R.cv.style.cursor = part ? 'pointer' : 'default';
     Home.draw(dt);
   } else if (App.screen === 'modes') {
-    R.frame(0, 0, SAMPLE_VIEW.w, SAMPLE_VIEW.h, false);
+    const [fx, fy, fw, fh] = W.map.frame;
+    R.frame(fx, fy, fw, fh, false);
     R.apply();
     drawWorld(ctx);
   } else if (App.screen === 'play') {
     if (!Game.paused) Game.update(dt);
-    R.frame(0, 0, W.view.w, W.view.h, false);
-    if (R.cam.s < 0.45 && W.player) {
-      // portrait phone: fill the height (or 900 world px) and slide along with the player
-      R.cam.s = Math.min(R.W / 900, R.H / W.view.h) > R.cam.s ? Math.min(R.W / 900, R.H / W.view.h) : R.cam.s;
-      const hw = R.W / 2 / R.cam.s, hh = R.H / 2 / R.cam.s;
-      R.cam.x = hw * 2 >= W.view.w ? W.view.w / 2 : clamp(W.player.x, hw, W.view.w - hw);
-      R.cam.y = hh * 2 >= W.view.h ? W.view.h / 2 : clamp(W.player.y, hh, W.view.h - hh);
-    }
+    Cam.update(Game.paused ? 0 : dt);
     const sh = W.shake;
     R.apply(sh ? rand(-sh, sh) * 0.5 : 0, sh ? rand(-sh, sh) * 0.5 : 0);
     drawWorld(ctx);
+    drawOverlays(ctx);
     if (Settings.radar) Radar.draw();
     HUD.update();
   }
