@@ -10,12 +10,17 @@ const R = {
     addEventListener('resize', () => this.resize());
     this.resize();
   },
+  dirty: true,
   resize() {
-    this.dpr = Math.min(this.cap, window.devicePixelRatio || 1);
     this.W = innerWidth;
     this.H = innerHeight;
+    // big Retina screens would otherwise ask for 10+ megapixels every frame and load the whole machine
+    const budget = Math.sqrt(4.2e6 / Math.max(1, this.W * this.H));
+    this.dpr = Math.max(0.75, Math.min(this.cap, window.devicePixelRatio || 1, budget));
     this.cv.width = Math.round(this.W * this.dpr);
     this.cv.height = Math.round(this.H * this.dpr);
+    this.dirty = true;
+    if (typeof Home !== 'undefined') Home.tipsDirty = true;
   },
   // fit a world rect inside the window (contain) or over it (cover), unrotated
   frame(x, y, w, h, cover) {
@@ -53,13 +58,21 @@ const R = {
   },
   // drop the backing-store resolution step by step when frames keep running long on this machine
   ft: 16, slowFor: 0, cap: 2,
+  fastFor: 0,
   watch(frameMs) {
-    this.ft += (Math.min(frameMs, 100) - this.ft) * 0.05;
+    // gaps this long mean the browser is throttling a covered or unfocused window, not that drawing is slow
+    if (frameMs > 70) return;
+    this.ft += (frameMs - this.ft) * 0.05;
     this.slowFor = this.ft > 24 ? this.slowFor + frameMs : 0;
+    this.fastFor = this.ft < 18 ? this.fastFor + frameMs : 0;
     if (this.slowFor > 1500 && this.cap > 1) {
       this.cap = Math.max(1, this.cap - 0.5);
-      this.slowFor = 0;
+      this.slowFor = this.fastFor = 0;
       this.ft = 16;
+      this.resize();
+    } else if (this.fastFor > 8000 && this.cap < 2) {
+      this.cap = Math.min(2, this.cap + 0.5);
+      this.slowFor = this.fastFor = 0;
       this.resize();
     }
   },

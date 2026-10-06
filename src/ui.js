@@ -317,6 +317,8 @@ const HUD = {
     $('danger').classList.remove('on');
     $('hintBar').style.opacity = 1;
     $('hintBar').hidden = Input.isTouch;
+    $('wheel').hidden = Input.isTouch;
+    Wheel.reset();
     this.lastPips = '';
   },
   update() {
@@ -359,6 +361,68 @@ const HUD = {
   },
 };
 $('pauseBtn').onclick = () => Game.togglePause();
+
+// ---------- steering wheel (drag with the mouse) ----------
+// Turning the rim clockwise steers right. Full lock is 135deg either way; let go and it springs back to centre.
+const WHEEL_MAX = deg(135);
+const Wheel = {
+  angle: 0, dragging: false, last: 0,
+  init() {
+    const el = $('wheel');
+    const centre = () => {
+      const r = el.getBoundingClientRect();
+      return [r.left + r.width / 2, r.top + r.height / 2];
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      const [cx, cy] = centre();
+      this.dragging = true;
+      this.last = Math.atan2(e.clientY - cy, e.clientX - cx);
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch (err) {}
+      el.classList.add('grab');
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!this.dragging) return;
+      const [cx, cy] = centre();
+      if (hypot(e.clientX - cx, e.clientY - cy) < 10) return; // too close to the hub to read an angle
+      const a = Math.atan2(e.clientY - cy, e.clientX - cx);
+      this.angle = clamp(this.angle + angDiff(this.last, a), -WHEEL_MAX, WHEEL_MAX);
+      this.last = a;
+      this.render();
+    });
+    const end = () => {
+      this.dragging = false;
+      el.classList.remove('grab');
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('lostpointercapture', end);
+  },
+  update(dt) {
+    if (this.dragging || !this.angle) return;
+    this.angle = approach(this.angle, 0, dt * 6);
+    this.render();
+  },
+  steer() {
+    return this.angle / WHEEL_MAX;
+  },
+  render() {
+    const v = Math.round((this.angle * 180) / Math.PI);
+    if (v === this._v) return;
+    this._v = v;
+    $('wheelRim').style.transform = `rotate(${v}deg)`;
+    $('wheel').setAttribute('aria-valuenow', v);
+  },
+  reset() {
+    this.angle = 0;
+    this.dragging = false;
+    this.render();
+  },
+};
+Wheel.init();
 
 // ---------- pause menu ----------
 function syncPauseUi() {

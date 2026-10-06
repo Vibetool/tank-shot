@@ -244,6 +244,13 @@
   .stick i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; background: center / contain no-repeat var(--u-round_grey); }
   .fire { position: absolute; right: 26px; bottom: calc(30px + env(safe-area-inset-bottom, 0px)); width: 104px; height: 104px; background: center / contain no-repeat var(--u-round_grey_detailed_red); pointer-events: auto; touch-action: none; display: grid; place-items: center; font-weight: 900; color: var(--cream); text-shadow: 0 2px 0 var(--shade); opacity: .9; }
 
+  .wheel { position: absolute; left: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 124px; height: 124px; pointer-events: auto; touch-action: none; cursor: grab; display: grid; place-items: center; }
+  .wheel.grab { cursor: grabbing; }
+  .wheel-rim { position: absolute; inset: 0; background: center / contain no-repeat var(--u-minimap_ring_grey_detail); will-change: transform; filter: drop-shadow(0 3px 0 var(--shade)); }
+  .wheel-rim img { position: absolute; left: 50%; top: 2px; width: 18px; height: 18px; margin-left: -9px; }
+  .wheel-hub { position: relative; width: 48px; height: 48px; background: center / contain no-repeat var(--u-round_grey_detailed_green); pointer-events: none; }
+  .wheel-label { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: 800; color: var(--cream); text-shadow: 0 1px 0 var(--shade); pointer-events: none; }
+
   /* pause / result / dialog */
   .menu { width: min(420px, 100%); display: grid; gap: 12px; }
   .menu-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; background: var(--u-pattern_diagonal_transparent_small) repeat; background-size: 24px 24px; font-weight: 900; letter-spacing: .14em; }
@@ -293,7 +300,7 @@
     <div class="sub">TOP-DOWN TANK SIMULATOR</div>
   </div>
   <div class="home-help">
-    <div class="nine pz-grey-bolts-detail-a"><b>点车身</b> 选择模式　<b>点履带</b> 进入装备库<br><span id="ctrlHelp">WASD 驾驶 · 鼠标瞄准 · 左键 / 空格开火 · Esc 暂停</span></div>
+    <div class="nine pz-grey-bolts-detail-a"><b>点车身</b> 选择模式　<b>点履带</b> 进入装备库<br><span id="ctrlHelp">W / S 油门 · A / D 或拖动方向盘转向 · 鼠标瞄准 · 左键 / 空格开火 · Esc 暂停</span></div>
     <div class="nine pz-brown-arrows-dark-detail credit" id="homeLoadout">当前坦克：—</div>
   </div>
 </div>
@@ -357,7 +364,12 @@
   </div>
   <div class="nine pz-grey-bolts-red alert" id="alert" hidden>敌军逼近沙袋防线！</div>
   <div class="banner banner-hang toast" id="toast" hidden></div>
-  <div class="nine pz-grey hint-bar" id="hintBar">WASD / 方向键 驾驶 · 鼠标瞄准 · 左键或空格开火 · Esc 暂停</div>
+  <div class="nine pz-grey hint-bar" id="hintBar">W / S 油门 · A / D 或拖动左下方向盘转向 · 鼠标瞄准 · 左键或空格开火 · Esc 暂停</div>
+  <div class="wheel" id="wheel" role="slider" aria-label="方向盘：按住拖动转向" aria-valuemin="-135" aria-valuemax="135" aria-valuenow="0" hidden>
+    <div class="wheel-rim" id="wheelRim"><img alt="" data-ui="minimap_arrow_d"></div>
+    <div class="wheel-hub"></div>
+    <span class="wheel-label">拖动转向</span>
+  </div>
   <div class="touch" id="touch" hidden><div class="stick" id="stick"><i></i></div><div class="fire" id="fireBtn">开火</div></div>
 </div>
 

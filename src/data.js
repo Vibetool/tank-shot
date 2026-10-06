@@ -3,14 +3,14 @@
 // Sprites face down (+y) at rotation 0, so a hull with heading h is drawn at rotation h - 90deg.
 // Mount offsets are measured from the factory composites (tank_*.png): x = sprite right, y = towards the nose.
 const HULLS = {
-  green: { name: '丛林', color: 'Green', body: 'tankBody_green', comp: 'tank_green', hp: 220, speed: 185, turn: 2.8, r: 35, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  sand: { name: '沙暴', color: 'Sand', body: 'tankBody_sand', comp: 'tank_sand', hp: 240, speed: 175, turn: 2.7, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  red: { name: '赤焰', color: 'Red', body: 'tankBody_red', comp: 'tank_red', hp: 190, speed: 210, turn: 3.1, r: 33, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  blue: { name: '海军', color: 'Blue', body: 'tankBody_blue', comp: 'tank_blue', hp: 260, speed: 165, turn: 2.6, r: 36, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  dark: { name: '暗影', color: 'Dark', body: 'tankBody_dark', comp: 'tank_dark', hp: 300, speed: 150, turn: 2.4, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
-  bigRed: { name: '红魔重坦', color: 'Red', large: true, body: 'tankBody_bigRed', comp: 'tank_bigRed', hp: 460, speed: 128, turn: 2.0, r: 44, trackW: 12, tracks: 'tracksLarge', mounts: [[-20, -9], [20, -9]] },
-  darkLarge: { name: '钢铁堡垒', color: 'Dark', large: true, body: 'tankBody_darkLarge', comp: 'tank_darkLarge', hp: 540, speed: 118, turn: 1.85, r: 48, trackW: 16, tracks: 'tracksLarge', mounts: [[-20, -17, 1], [20, -17]] },
-  huge: { name: '巨像', color: 'Dark', large: true, body: 'tankBody_huge', comp: 'tank_huge', hp: 720, speed: 102, turn: 1.6, r: 57, trackW: 20, tracks: 'tracksDouble', mounts: [[0, -35], [-20, 31, 1], [20, 31]] },
+  green: { name: '丛林', color: 'Green', body: 'tankBody_green', comp: 'tank_green', hp: 220, speed: 185, turn: 2.24, r: 35, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  sand: { name: '沙暴', color: 'Sand', body: 'tankBody_sand', comp: 'tank_sand', hp: 240, speed: 175, turn: 2.16, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  red: { name: '赤焰', color: 'Red', body: 'tankBody_red', comp: 'tank_red', hp: 190, speed: 210, turn: 2.48, r: 33, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  blue: { name: '海军', color: 'Blue', body: 'tankBody_blue', comp: 'tank_blue', hp: 260, speed: 165, turn: 2.08, r: 36, trackW: 8, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  dark: { name: '暗影', color: 'Dark', body: 'tankBody_dark', comp: 'tank_dark', hp: 300, speed: 150, turn: 1.92, r: 35, trackW: 12, tracks: 'tracksSmall', mounts: [[0, 0]] },
+  bigRed: { name: '红魔重坦', color: 'Red', large: true, body: 'tankBody_bigRed', comp: 'tank_bigRed', hp: 460, speed: 128, turn: 1.6, r: 44, trackW: 12, tracks: 'tracksLarge', mounts: [[-20, -9], [20, -9]] },
+  darkLarge: { name: '钢铁堡垒', color: 'Dark', large: true, body: 'tankBody_darkLarge', comp: 'tank_darkLarge', hp: 540, speed: 118, turn: 1.48, r: 48, trackW: 16, tracks: 'tracksLarge', mounts: [[-20, -17, 1], [20, -17]] },
+  huge: { name: '巨像', color: 'Dark', large: true, body: 'tankBody_huge', comp: 'tank_huge', hp: 720, speed: 102, turn: 1.28, r: 57, trackW: 20, tracks: 'tracksDouble', mounts: [[0, -35], [-20, 31, 1], [20, 31]] },
 };
 const HULL_ORDER = ['green', 'sand', 'red', 'blue', 'dark', 'bigRed', 'darkLarge', 'huge'];
 

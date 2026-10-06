@@ -1,6 +1,6 @@
 // ---------- home scene: the player's tank, top-down, parked on the parade ground ----------
 const Home = {
-  tank: null, hover: null, scale: 2, ready: false,
+  tank: null, hover: null, scale: 2, ready: false, tipsDirty: true,
   setup() {
     loadMap('home');
     W.mode = { key: 'home' };
@@ -13,6 +13,7 @@ const Home = {
     const im = img(this.tank.H.body + '_outline');
     this.scale = 2 * clamp(84 / Math.max(im.width, im.height), 0.62, 1);
     this.ready = true;
+    this.tipsDirty = true;
     if (Input.isTouch) $('ctrlHelp').textContent = '左下摇杆驾驶 · 点战场瞄准并开火 · 右下按钮连发';
     $('homeLoadout').innerHTML = `<b>当前坦克</b>　${loadoutLabel(Loadout)}<br><span class="muted">美术素材：Kenney Top-down Tanks Remastered · UI Pack Adventure（CC0）</span>`;
   },
@@ -57,7 +58,10 @@ const Home = {
     ctx.globalAlpha = 1;
     drawTank(ctx, t, this.scale, this.hover);
     for (const o of W.props) if (o.layer === 'high') drawProp(ctx, o);
-    this.placeTips();
+    if (this.tipsDirty) {
+      this.tipsDirty = false;
+      this.placeTips();
+    }
   },
   placeTips() {
     const t = this.tank, im = img(t.H.body + '_outline');
@@ -272,7 +276,7 @@ const Game = {
       st = Math.abs(tm.x) > 0.2 ? clamp(tm.x * 1.25, -1, 1) : 0;
     }
     p.throttle = thr;
-    p.steer = st;
+    p.steer = clamp(st + Wheel.steer(), -1, 1);
     let ax = null, ay = null;
     if (Input.touchAim.active) [ax, ay] = R.toWorld(Input.touchAim.x, Input.touchAim.y);
     else if (Input.mouse.inside || Input.mouse.down) [ax, ay] = R.toWorld(Input.mouse.x, Input.mouse.y);
@@ -439,6 +443,7 @@ const App = {
   screen: null,
   go(screen) {
     this.screen = screen;
+    R.dirty = true;
     show('home', screen === 'home');
     show('tipBody', screen === 'home');
     show('tipTracks', screen === 'home');
@@ -527,27 +532,44 @@ $('garageGo').onclick = () => {
 };
 
 // ---------- main loop ----------
+// Each screen asks for only as many frames as it needs: battle ~60 fps (also on 120 Hz displays),
+// the home showcase 30 fps, paused/finished rounds ~11 fps, and the still screens (modes, garage) one frame.
 let lastT = performance.now(), frameNo = 0;
 function frame(now) {
-  const raw = now - lastT;
-  const dt = Math.min(0.033, raw / 1000);
+  requestAnimationFrame(frame);
+  const scr = App.screen;
+  const gap = now - lastT;
+  if (scr === 'play') {
+    if (gap < (Game.paused || !$('result').hidden ? 90 : 12.5)) return;
+  } else if (scr === 'home') {
+    if (gap < 30) return;
+  } else if (!R.dirty) return;
+  R.dirty = false;
+  const dt = Math.min(0.033, gap / 1000);
   lastT = now;
   frameNo++;
-  if (App.screen === 'play' && !Game.paused) R.watch(raw);
+  if (scr === 'garage') return; // the garage covers the whole canvas
+  if (scr === 'play' && !Game.paused && !W.over) R.watch(gap);
   R.clear();
   const ctx = R.ctx;
-  if (App.screen === 'home') {
+  if (scr === 'home') {
     const part = Input.mouse.inside ? Home.hit(Input.mouse.x, Input.mouse.y) : null;
-    Home.hover = part;
-    R.cv.style.cursor = part ? 'pointer' : 'default';
+    if (part !== Home.hover) {
+      Home.hover = part;
+      Home.tipsDirty = true;
+      R.cv.style.cursor = part ? 'pointer' : 'default';
+    }
     Home.draw(dt);
-  } else if (App.screen === 'modes') {
+  } else if (scr === 'modes') {
     const [fx, fy, fw, fh] = W.map.frame;
     R.frame(fx, fy, fw, fh, false);
     R.apply();
     drawWorld(ctx);
   } else if (App.screen === 'play') {
-    if (!Game.paused) Game.update(dt);
+    if (!Game.paused) {
+      Wheel.update(dt);
+      Game.update(dt);
+    }
     Cam.update(Game.paused ? 0 : dt);
     const sh = W.shake;
     R.apply(sh ? rand(-sh, sh) * 0.5 : 0, sh ? rand(-sh, sh) * 0.5 : 0);
@@ -556,11 +578,28 @@ function frame(now) {
     if (Settings.radar && frameNo % 2 === 0) Radar.draw();
     HUD.update();
   }
-  requestAnimationFrame(frame);
+}
+
+// ---------- updates ----------
+// GitHub Pages lets browsers cache the page for 10 minutes, and the game hall's iframe never revalidates it.
+// So the page asks for version.json past every cache and moves itself to the newest build.
+function checkForUpdate() {
+  if (!/^https?:$/.test(location.protocol) || typeof BUILD === 'undefined') return;
+  fetch('version.json?ts=' + Date.now(), { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((v) => {
+      if (!v || !v.build || v.build === BUILD) return;
+      const u = new URL(location.href);
+      if (u.searchParams.get('v') === v.build) return; // already asked for it; the CDN is still catching up
+      u.searchParams.set('v', v.build);
+      location.replace(u.toString());
+    })
+    .catch(() => {});
 }
 
 // ---------- boot ----------
 async function boot() {
+  checkForUpdate();
   R.init();
   Radar.init();
   Input.init(R.cv);

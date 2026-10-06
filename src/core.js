@@ -251,7 +251,10 @@ const Input = {
   setTouch(on) {
     if (this.isTouch === on) return;
     this.isTouch = on;
-    if (Game.mode) show('touch', on);
+    if (Game.mode) {
+      show('touch', on);
+      $('wheel').hidden = on;
+    }
     $('hintBar').hidden = on || $('hintBar').hidden;
   },
   down(...codes) {

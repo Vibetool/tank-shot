@@ -5,6 +5,7 @@ Usage: python3 tools/build.py [fragment_out.html]
 The optional argument also writes a body-only fragment (for hosts that add their own <head>).
 """
 import base64
+import hashlib
 import json
 import pathlib
 import re
@@ -34,6 +35,10 @@ def main():
     if unused:
         print("warning: UI sprites never referenced:", ", ".join(unused))
 
+    # build id: the page compares it with version.json to pull itself past stale caches
+    build_id = hashlib.sha256((assets_js + game_js + page).encode("utf-8")).hexdigest()[:10]
+    assets_js += "\nconst BUILD = '" + build_id + "';"
+    (ROOT / "version.json").write_text(json.dumps({"build": build_id}) + "\n", encoding="utf-8")
     page = page.replace("/*__ASSETS__*/", assets_js).replace("/*__GAME__*/", game_js)
     head_end = page.index("<canvas")
     head, body = page[:head_end], page[head_end:]
@@ -43,7 +48,7 @@ def main():
         + head + "</head>\n<body>\n" + body + "</body>\n</html>\n"
     )
     (ROOT / "index.html").write_text(full, encoding="utf-8")
-    print("wrote", ROOT / "index.html", f"{len(full) / 1024:.0f} KB,", len(assets["t"]), "tank sprites,", len(assets["u"]), "UI sprites")
+    print("wrote", ROOT / "index.html", f"{len(full) / 1024:.0f} KB,", len(assets["t"]), "tank sprites,", len(assets["u"]), "UI sprites, build", build_id)
     if len(sys.argv) > 1:
         out = pathlib.Path(sys.argv[1])
         out.write_text(page, encoding="utf-8")
