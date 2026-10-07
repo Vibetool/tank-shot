@@ -299,9 +299,9 @@ const Game = {
       p.aimY = p.y + Math.sin(p.a) * 400;
     }
     if (Input.mouse.down || Input.down('Space') || Input.touchAim.fire || Input.fireBtn) tryFirePlayer(p);
-    // battle: armour regenerates 5 points a second at all times, under fire or not
+    // battle: armour regenerates 10 points a second at all times, under fire or not
     p.regen = this.modeKey === 'battle' && p.hp < p.maxHp;
-    if (p.regen) p.hp = Math.min(p.maxHp, p.hp + 5 * dt);
+    if (p.regen) p.hp = Math.min(p.maxHp, p.hp + 10 * dt);
   },
   updateRespawns(dt) {
     const p = W.player;
